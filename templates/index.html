@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CourseTrack</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 12 12%22%3E%3Crect width=%2212%22 height=%2212%22 fill=%22%230a0a0a%22/%3E%3Crect x=%221%22 y=%224%22 width=%222.6%22 height=%224%22 fill=%22%23f85149%22/%3E%3Crect x=%224.7%22 y=%224%22 width=%222.6%22 height=%224%22 fill=%22%233fb950%22/%3E%3Crect x=%228.4%22 y=%224%22 width=%222.6%22 height=%224%22 fill=%22%2358a6ff%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- signed-out screen -->
+<section id="auth" hidden>
+  <form id="authForm" autocomplete="on">
+    <div class="brand big"><i class="r"></i><i class="g"></i><i class="b"></i><span>CourseTrack</span></div>
+    <p class="tag">Your degree as a map. Check off what you've done, see what it unlocks.</p>
+    <input id="auUser" name="username" placeholder="username" autocomplete="username" required>
+    <input id="auPass" name="password" type="password" placeholder="password" autocomplete="current-password" required>
+    <button class="primary" id="auLogin" type="submit">Log in</button>
+    <button id="auSignup" type="button">Create account</button>
+    <button class="link" id="auGuest" type="button">Just looking? Continue as guest</button>
+    <div id="auMsg"></div>
+  </form>
+</section>
+
+<div id="app" hidden>
+<header id="top">
+  <div class="brand"><i class="r"></i><i class="g"></i><i class="b"></i><span>CourseTrack</span></div>
+  <select id="progSel" title="Program"></select>
+  <select id="planSel" title="Plan"></select>
+  <button id="btnFork" title="Copy this plan to try changes">+ plan</button>
+  <div id="searchWrap">
+    <input id="q" placeholder="Search a course or subject   /" autocomplete="off" spellcheck="false">
+    <div id="qList" hidden></div>
+  </div>
+  <button id="btnExtra" class="toggle" title="Show Winter and Summer terms">Winter / Summer</button>
+  <button id="btnUpload">Upload PDF</button>
+  <button id="btnUser" class="link" title="Log out"></button>
+</header>
+<div id="xp"><i id="xpBar"></i></div>
+
+<main>
+  <section id="stage">
+    <svg id="svg"><defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/></marker>
+    </defs><g id="world"><g id="cols"></g><g id="edges"></g><g id="nodes"></g></g></svg>
+    <div id="empty" hidden>
+      <h1>No program yet</h1>
+      <p>Upload your department's curriculum worksheet or prerequisite flowchart.</p>
+      <button class="primary" onclick="openUpload()">Upload a PDF</button>
+    </div>
+  </section>
+  <aside id="side" hidden></aside>
+</main>
+
+<footer id="status">
+  <button id="stDone" title="Credits completed"></button>
+  <span id="stLevel"></span>
+  <button id="stProblems" title="Open plan check"></button>
+  <span id="stFinish"></span>
+  <span class="spacer"></span>
+  <span class="lg"><i class="g"></i>done</span><span class="lg"><i class="b"></i>ready</span><span class="lg"><i class="k"></i>locked</span><span class="lg"><i class="r"></i>problem</span>
+  <span id="stSaved"></span>
+  <button data-z="out">−</button><button data-z="fit">fit</button><button data-z="in">+</button>
+</footer>
+</div>
+
+<div id="modal" hidden>
+  <div class="sheet">
+    <button class="x" onclick="closeUpload()">×</button>
+    <h2>Add a program</h2>
+    <p class="muted">Drop the PDFs for one major: a semester worksheet, a prerequisite flowchart, or both.</p>
+    <div id="drop">
+      <input type="file" id="file" accept="application/pdf" multiple hidden>
+      <div id="dropTxt"><b>Drop PDFs here</b> or click to choose</div>
+    </div>
+    <input id="progName" placeholder="Program name (optional)">
+    <button id="goUpload" class="primary">Build my tree</button>
+    <details>
+      <summary>No PDF? Type your courses instead</summary>
+      <textarea id="typed" rows="5" placeholder="One course per line:&#10;MATH 131 | Calculus I | 4 | term: 1 fall&#10;MATH 132 | Calculus II | 4 | prereq: MATH 131 | term: 1 spring"></textarea>
+      <button id="goTyped">Build from text</button>
+    </details>
+    <div id="upMsg"></div>
+  </div>
+</div>
+<div id="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

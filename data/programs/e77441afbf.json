@@ -1,0 +1,1422 @@
+{
+ "id": "e77441afbf",
+ "name": "BS Computer Engineering (UMass)",
+ "courses": {
+  "ENGIN 112": {
+   "code": "ENGIN 112",
+   "title": "Intro. to ECE",
+   "credits": 3,
+   "kind": "required",
+   "honors": false,
+   "note_text": [
+    "Note 1 \u00b7 ENGIN 112, Intro. to ECE: In the Fall semester, choose one of the following: ENGIN 100: Intro. to Engineering ENGIN 110: Intro. to Chemical Engineering ENGIN 111: Intro. to Civil & Environmental Engineering >> ENGIN 112: Intro. to Electrical & Computer Engineering ENGIN 113: Intro. to Mechanical & Industrial Engineering ENGIN 114: Intro. to Biomedical Engineering ENGIN 112 is strongly recommended for CompE and EE majors."
+   ]
+  },
+  "PHYSICS 151": {
+   "code": "PHYSICS 151",
+   "title": "Gen. Physics I \u2013 Mechanics",
+   "credits": 4,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "MATH 131": {
+   "code": "MATH 131",
+   "title": "Calculus I",
+   "credits": 4,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "SLOT 1": {
+   "code": "SLOT 1",
+   "title": "Social World Elective",
+   "credits": 4,
+   "credits_max": 4,
+   "kind": "slot",
+   "honors": false,
+   "tag": "DU or DG",
+   "req": "note2",
+   "note_text": [
+    "Note 2 \u00b7 Social World Electives / Diversity Requirements: Choose four Social World Electives (four credits each) consisting of: 1. One Literature or Arts elective: AL or AT 2. One Historical Studies elective: HS 3. One Social and Behavioral elective: SB 4. One more elective: AL, AT, SB, I or SI Also, choose two courses to meet the Social & Cultural Diversity requirement: one course focusing on Global diversity (e.g., AL DG) and one course focusing on United States diversity"
+   ]
+  },
+  "ENGLWRIT 112": {
+   "code": "ENGLWRIT 112",
+   "title": "College Writing",
+   "credits": 3,
+   "kind": "required",
+   "honors": false,
+   "note_text": [
+    "Note 3 \u00b7 ECE 287, Design Project: In the spring, first-year students looking for a hands-on experience may choose to take a 1-credit \u201cDesign Project\u201d. Students who are planning on taking ECE 287 in their first year will need to take ENGLWRIT 112 in the fall. Other students may take ECE 287 any fall or spring."
+   ]
+  },
+  "FYS 191ENG": {
+   "code": "FYS 191ENG",
+   "title": "First-Year Seminar in Engineering",
+   "credits": 1,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "ECE 122": {
+   "code": "ECE 122",
+   "title": "Intro. Programming for ECE",
+   "credits": 4,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "PHYSICS 152": {
+   "code": "PHYSICS 152",
+   "title": "Gen. Physics II \u2013 Thermo., E&M",
+   "credits": 4,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "MATH 132": {
+   "code": "MATH 132",
+   "title": "Calculus II",
+   "credits": 4,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "ECE 124": {
+   "code": "ECE 124",
+   "title": "Intro. Digital & Computer Systems",
+   "credits": 4,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "ECE 201": {
+   "code": "ECE 201",
+   "title": "Analytical Tools for ECE",
+   "credits": 4,
+   "kind": "required",
+   "honors": false,
+   "note_text": [
+    "Note 4 \u00b7 ECE 201, Analytical Tools for ECE: Students may substitute MATH 235, Linear Algebra, and MATH 331, Differential Equations, for ECE 201. A 1-credit Independent Study (ECE 296C) covering Complex Numbers is needed to fulfill the graduation requirement for ECE 201. All three courses need to be completed before taking ECE 213 and/or ECE 214."
+   ]
+  },
+  "ECE 202": {
+   "code": "ECE 202",
+   "title": "Computational Tools for ECE",
+   "credits": 3,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "ECE 210": {
+   "code": "ECE 210",
+   "title": "Circuits & Electronics I",
+   "credits": 4,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "ECE 241": {
+   "code": "ECE 241",
+   "title": "Advanced Programming",
+   "credits": 3,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "SLOT 2": {
+   "code": "SLOT 2",
+   "title": "Social World Elective",
+   "credits": 4,
+   "credits_max": 4,
+   "kind": "slot",
+   "honors": false,
+   "req": "note2",
+   "note_text": [
+    "Note 2 \u00b7 Social World Electives / Diversity Requirements: Choose four Social World Electives (four credits each) consisting of: 1. One Literature or Arts elective: AL or AT 2. One Historical Studies elective: HS 3. One Social and Behavioral elective: SB 4. One more elective: AL, AT, SB, I or SI Also, choose two courses to meet the Social & Cultural Diversity requirement: one course focusing on Global diversity (e.g., AL DG) and one course focusing on United States diversity"
+   ]
+  },
+  "ECE 213": {
+   "code": "ECE 213",
+   "title": "Continuous-Time Signals & Systems",
+   "credits": 4,
+   "kind": "required",
+   "honors": false,
+   "note_text": [
+    "Note 4 \u00b7 ECE 201, Analytical Tools for ECE: Students may substitute MATH 235, Linear Algebra, and MATH 331, Differential Equations, for ECE 201. A 1-credit Independent Study (ECE 296C) covering Complex Numbers is needed to fulfill the graduation requirement for ECE 201. All three courses need to be completed before taking ECE 213 and/or ECE 214."
+   ]
+  },
+  "ECE 214": {
+   "code": "ECE 214",
+   "title": "Probability & Statistics",
+   "credits": 4,
+   "kind": "required",
+   "honors": false,
+   "note_text": [
+    "Note 4 \u00b7 ECE 201, Analytical Tools for ECE: Students may substitute MATH 235, Linear Algebra, and MATH 331, Differential Equations, for ECE 201. A 1-credit Independent Study (ECE 296C) covering Complex Numbers is needed to fulfill the graduation requirement for ECE 201. All three courses need to be completed before taking ECE 213 and/or ECE 214."
+   ]
+  },
+  "ECE 231": {
+   "code": "ECE 231",
+   "title": "Intro. to Embedded Systems",
+   "credits": 4,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "COMPSCI 250": {
+   "code": "COMPSCI 250",
+   "title": "Intro. to Computation",
+   "credits": 4,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "ECE 322": {
+   "code": "ECE 322",
+   "title": "Systems Programming",
+   "credits": 3,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "ECE 371": {
+   "code": "ECE 371",
+   "title": "Intro. to Security Engineering",
+   "credits": 4,
+   "kind": "required",
+   "honors": true,
+   "note_text": []
+  },
+  "ECE 331": {
+   "code": "ECE 331",
+   "title": "Hardware Organization & Digital Design",
+   "credits": 3,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "ECE 303": {
+   "code": "ECE 303",
+   "title": "Junior Seminar",
+   "credits": 1,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "ENGIN 351": {
+   "code": "ENGIN 351",
+   "title": "Writing in Engineering",
+   "credits": 3,
+   "kind": "required",
+   "honors": true,
+   "note_text": [
+    "Note 5 \u00b7 Life Sciences Elective: The Life Sciences Elective can be fulfilled with any of the following five approved courses. All are 4 credits, and all fulfill the BS Gen Ed. BIOLOGY 109: Evolution Explained (2nd sem) BIOLOGY 110: Intro. Biology for Science Majors (2nd sem) BIOLOGY 151: Intro. Biology I (both sem) ENVIRSCI 101: Intro to Environmental Science (1st sem) MICROBIO 160: Biology of Cancer and AIDS (both sem) You may choose to take your L"
+   ]
+  },
+  "ECE 304": {
+   "code": "ECE 304",
+   "title": "Junior Design Project",
+   "credits": 2,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "SLOT 3": {
+   "code": "SLOT 3",
+   "title": "CompE Elective",
+   "credits": 3,
+   "credits_max": 4,
+   "kind": "slot",
+   "honors": false,
+   "pool": "note6",
+   "note_text": [
+    "Note 6 \u00b7 CompE Electives: Choose seven CompE Electives, including at least two 500-level courses (or above) that may not be used to satisfy the requirements for any other major. Each is 3 credits unless otherwise indicated. ECE 244: Modern Physics and Materials for EE (2nd sem) 4 cr ECE 310: Circuits & Electronics II (1st sem) 4 cr ECE 311: Intermediate Electronics (2nd sem) ECE 315: Signal Processing Methods (1st sem) ECE 325: Computer Netwo",
+    "Note 7 \u00b7 Alternative Electives: To propose a different course to satisfy your Life Sciences or one of your CompE electives, fill out the ECE Alternative Elective Requests form."
+   ]
+  },
+  "SLOT 4": {
+   "code": "SLOT 4",
+   "title": "CompE Elective",
+   "credits": 3,
+   "credits_max": 4,
+   "kind": "slot",
+   "honors": false,
+   "pool": "note6",
+   "note_text": [
+    "Note 6 \u00b7 CompE Electives: Choose seven CompE Electives, including at least two 500-level courses (or above) that may not be used to satisfy the requirements for any other major. Each is 3 credits unless otherwise indicated. ECE 244: Modern Physics and Materials for EE (2nd sem) 4 cr ECE 310: Circuits & Electronics II (1st sem) 4 cr ECE 311: Intermediate Electronics (2nd sem) ECE 315: Signal Processing Methods (1st sem) ECE 325: Computer Netwo",
+    "Note 7 \u00b7 Alternative Electives: To propose a different course to satisfy your Life Sciences or one of your CompE electives, fill out the ECE Alternative Elective Requests form."
+   ]
+  },
+  "SLOT 5": {
+   "code": "SLOT 5",
+   "title": "CompE Elective",
+   "credits": 3,
+   "credits_max": 4,
+   "kind": "slot",
+   "honors": false,
+   "pool": "note6",
+   "note_text": [
+    "Note 6 \u00b7 CompE Electives: Choose seven CompE Electives, including at least two 500-level courses (or above) that may not be used to satisfy the requirements for any other major. Each is 3 credits unless otherwise indicated. ECE 244: Modern Physics and Materials for EE (2nd sem) 4 cr ECE 310: Circuits & Electronics II (1st sem) 4 cr ECE 311: Intermediate Electronics (2nd sem) ECE 315: Signal Processing Methods (1st sem) ECE 325: Computer Netwo",
+    "Note 7 \u00b7 Alternative Electives: To propose a different course to satisfy your Life Sciences or one of your CompE electives, fill out the ECE Alternative Elective Requests form."
+   ]
+  },
+  "SLOT 6": {
+   "code": "SLOT 6",
+   "title": "Life Sciences Elective",
+   "credits": 4,
+   "credits_max": 4,
+   "kind": "slot",
+   "honors": true,
+   "pool": "note5",
+   "note_text": [
+    "Note 5 \u00b7 Life Sciences Elective: The Life Sciences Elective can be fulfilled with any of the following five approved courses. All are 4 credits, and all fulfill the BS Gen Ed. BIOLOGY 109: Evolution Explained (2nd sem) BIOLOGY 110: Intro. Biology for Science Majors (2nd sem) BIOLOGY 151: Intro. Biology I (both sem) ENVIRSCI 101: Intro to Environmental Science (1st sem) MICROBIO 160: Biology of Cancer and AIDS (both sem) You may choose to take your L",
+    "Note 7 \u00b7 Alternative Electives: To propose a different course to satisfy your Life Sciences or one of your CompE electives, fill out the ECE Alternative Elective Requests form."
+   ]
+  },
+  "ECE 415": {
+   "code": "ECE 415",
+   "title": "Senior Design Project I",
+   "credits": 3,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "SLOT 7": {
+   "code": "SLOT 7",
+   "title": "CompE Elective",
+   "credits": 3,
+   "credits_max": 4,
+   "kind": "slot",
+   "honors": false,
+   "pool": "note6",
+   "note_text": [
+    "Note 6 \u00b7 CompE Electives: Choose seven CompE Electives, including at least two 500-level courses (or above) that may not be used to satisfy the requirements for any other major. Each is 3 credits unless otherwise indicated. ECE 244: Modern Physics and Materials for EE (2nd sem) 4 cr ECE 310: Circuits & Electronics II (1st sem) 4 cr ECE 311: Intermediate Electronics (2nd sem) ECE 315: Signal Processing Methods (1st sem) ECE 325: Computer Netwo",
+    "Note 7 \u00b7 Alternative Electives: To propose a different course to satisfy your Life Sciences or one of your CompE electives, fill out the ECE Alternative Elective Requests form."
+   ]
+  },
+  "SLOT 8": {
+   "code": "SLOT 8",
+   "title": "CompE Elective",
+   "credits": 3,
+   "credits_max": 4,
+   "kind": "slot",
+   "honors": false,
+   "pool": "note6",
+   "note_text": [
+    "Note 6 \u00b7 CompE Electives: Choose seven CompE Electives, including at least two 500-level courses (or above) that may not be used to satisfy the requirements for any other major. Each is 3 credits unless otherwise indicated. ECE 244: Modern Physics and Materials for EE (2nd sem) 4 cr ECE 310: Circuits & Electronics II (1st sem) 4 cr ECE 311: Intermediate Electronics (2nd sem) ECE 315: Signal Processing Methods (1st sem) ECE 325: Computer Netwo",
+    "Note 7 \u00b7 Alternative Electives: To propose a different course to satisfy your Life Sciences or one of your CompE electives, fill out the ECE Alternative Elective Requests form."
+   ]
+  },
+  "SLOT 9": {
+   "code": "SLOT 9",
+   "title": "Social World Elective",
+   "credits": 4,
+   "credits_max": 4,
+   "kind": "slot",
+   "honors": false,
+   "req": "note2",
+   "note_text": [
+    "Note 2 \u00b7 Social World Electives / Diversity Requirements: Choose four Social World Electives (four credits each) consisting of: 1. One Literature or Arts elective: AL or AT 2. One Historical Studies elective: HS 3. One Social and Behavioral elective: SB 4. One more elective: AL, AT, SB, I or SI Also, choose two courses to meet the Social & Cultural Diversity requirement: one course focusing on Global diversity (e.g., AL DG) and one course focusing on United States diversity"
+   ]
+  },
+  "ECE 416": {
+   "code": "ECE 416",
+   "title": "Senior Design Project II",
+   "credits": 3,
+   "kind": "required",
+   "honors": false,
+   "note_text": []
+  },
+  "SLOT 10": {
+   "code": "SLOT 10",
+   "title": "CompE Elective",
+   "credits": 3,
+   "credits_max": 4,
+   "kind": "slot",
+   "honors": false,
+   "pool": "note6",
+   "note_text": [
+    "Note 6 \u00b7 CompE Electives: Choose seven CompE Electives, including at least two 500-level courses (or above) that may not be used to satisfy the requirements for any other major. Each is 3 credits unless otherwise indicated. ECE 244: Modern Physics and Materials for EE (2nd sem) 4 cr ECE 310: Circuits & Electronics II (1st sem) 4 cr ECE 311: Intermediate Electronics (2nd sem) ECE 315: Signal Processing Methods (1st sem) ECE 325: Computer Netwo",
+    "Note 7 \u00b7 Alternative Electives: To propose a different course to satisfy your Life Sciences or one of your CompE electives, fill out the ECE Alternative Elective Requests form."
+   ]
+  },
+  "SLOT 11": {
+   "code": "SLOT 11",
+   "title": "CompE Elective",
+   "credits": 3,
+   "credits_max": 4,
+   "kind": "slot",
+   "honors": false,
+   "pool": "note6",
+   "note_text": [
+    "Note 6 \u00b7 CompE Electives: Choose seven CompE Electives, including at least two 500-level courses (or above) that may not be used to satisfy the requirements for any other major. Each is 3 credits unless otherwise indicated. ECE 244: Modern Physics and Materials for EE (2nd sem) 4 cr ECE 310: Circuits & Electronics II (1st sem) 4 cr ECE 311: Intermediate Electronics (2nd sem) ECE 315: Signal Processing Methods (1st sem) ECE 325: Computer Netwo",
+    "Note 7 \u00b7 Alternative Electives: To propose a different course to satisfy your Life Sciences or one of your CompE electives, fill out the ECE Alternative Elective Requests form."
+   ]
+  },
+  "SLOT 12": {
+   "code": "SLOT 12",
+   "title": "Social World Elective",
+   "credits": 4,
+   "credits_max": 4,
+   "kind": "slot",
+   "honors": false,
+   "req": "note2",
+   "note_text": [
+    "Note 2 \u00b7 Social World Electives / Diversity Requirements: Choose four Social World Electives (four credits each) consisting of: 1. One Literature or Arts elective: AL or AT 2. One Historical Studies elective: HS 3. One Social and Behavioral elective: SB 4. One more elective: AL, AT, SB, I or SI Also, choose two courses to meet the Social & Cultural Diversity requirement: one course focusing on Global diversity (e.g., AL DG) and one course focusing on United States diversity"
+   ]
+  },
+  "ECE 332": {
+   "code": "ECE 332",
+   "credits": 3,
+   "title": "Embedded Systems Lab",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 325": {
+   "code": "ECE 325",
+   "credits": 3,
+   "title": "Computer Networking",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 568": {
+   "code": "ECE 568",
+   "credits": 3,
+   "title": "Introduction to Computer Architecture",
+   "kind": "elective",
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "ECE 527": {
+   "code": "ECE 527",
+   "credits": 3,
+   "title": "AI-based Wireless Network Design",
+   "kind": "elective",
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "ECE 522": {
+   "code": "ECE 522",
+   "credits": 3,
+   "title": "Modeling and Verification of Embedded Systems",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 557": {
+   "code": "ECE 557",
+   "credits": 3,
+   "title": "Machine Learning & Systems",
+   "kind": "elective",
+   "note_text": []
+  },
+  "ECE 535": {
+   "code": "ECE 535",
+   "credits": 3,
+   "title": "Networked Embedded System Design",
+   "kind": "elective",
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "ECE 570": {
+   "code": "ECE 570",
+   "credits": 3,
+   "title": "Operating Systems",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 547": {
+   "code": "ECE 547",
+   "credits": 3,
+   "title": "Security Engineering",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 567": {
+   "code": "ECE 567",
+   "credits": 3,
+   "title": "Synthesis and Verification of Digital Systems",
+   "kind": "elective",
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "ECE 545": {
+   "code": "ECE 545",
+   "credits": 3,
+   "title": "Network Security and Privacy",
+   "kind": "elective",
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "ECE 523": {
+   "code": "ECE 523",
+   "credits": 3,
+   "title": "Design Principles for Low-Power Embed. Comp. Sys.",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 341": {
+   "code": "ECE 341",
+   "credits": 3,
+   "title": "Algorithms for Computer Engineering",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 529": {
+   "code": "ECE 529",
+   "credits": 3,
+   "title": "Applied ML for the Internet of Things",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 550": {
+   "code": "ECE 550",
+   "credits": 3,
+   "title": "Intro. Quantum Computing",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 571": {
+   "code": "ECE 571",
+   "credits": 4,
+   "title": "Microelectronic Fabrication",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 334": {
+   "code": "ECE 334",
+   "credits": 3,
+   "title": "Fields and Waves II",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 244": {
+   "code": "ECE 244",
+   "credits": 4,
+   "title": "Modern Physics and Materials for EE",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 333": {
+   "code": "ECE 333",
+   "credits": 3,
+   "title": "Fields and Waves I",
+   "kind": "elective",
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "ECE 310": {
+   "code": "ECE 310",
+   "credits": 4,
+   "title": "Circuits & Electronics II",
+   "kind": "elective",
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "ECE 344": {
+   "code": "ECE 344",
+   "credits": 3,
+   "title": "Fundamentals of Semiconductor Devices",
+   "kind": "elective",
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "ECE 587": {
+   "code": "ECE 587",
+   "credits": 3,
+   "title": "Antennas & Propagation",
+   "kind": "elective",
+   "note_text": []
+  },
+  "ECE 572": {
+   "code": "ECE 572",
+   "credits": 3,
+   "title": "Opto-Electronics",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 311": {
+   "code": "ECE 311",
+   "credits": 3,
+   "title": "Intermediate Electronics",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 558": {
+   "code": "ECE 558",
+   "credits": 4,
+   "title": "VLSI Design Principles",
+   "kind": "elective",
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "ECE 559": {
+   "code": "ECE 559",
+   "credits": 3,
+   "title": "VLSI Design Project",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 564": {
+   "code": "ECE 564",
+   "credits": 3,
+   "title": "Communication Systems",
+   "kind": "elective",
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ECE 566": {
+   "code": "ECE 566",
+   "credits": 3,
+   "title": "Image Processing",
+   "kind": "elective",
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "ECE 315": {
+   "code": "ECE 315",
+   "credits": 3,
+   "title": "Signal Processing Methods",
+   "kind": "elective",
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "ECE 565": {
+   "code": "ECE 565",
+   "credits": 3,
+   "title": "Digital Signal Processing and Representation",
+   "kind": "elective",
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "ECE 580": {
+   "code": "ECE 580",
+   "credits": 3,
+   "title": "Feedback Control Systems",
+   "kind": "elective",
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "MATH 233": {
+   "code": "MATH 233",
+   "credits": 3,
+   "kind": "external",
+   "title": "",
+   "note_text": []
+  },
+  "ECE 396S": {
+   "code": "ECE 396S",
+   "credits": 3,
+   "kind": "external",
+   "title": "",
+   "note_text": []
+  },
+  "COMPSCI 311": {
+   "code": "COMPSCI 311",
+   "kind": "elective",
+   "title": "Intro to Algorithms",
+   "credits": 4,
+   "offered": [
+    "fall",
+    "spring"
+   ],
+   "note_text": []
+  },
+  "COMPSCI 348": {
+   "code": "COMPSCI 348",
+   "kind": "elective",
+   "title": "Principles of Data Science",
+   "credits": 3,
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "COMPSCI 383": {
+   "code": "COMPSCI 383",
+   "kind": "elective",
+   "title": "Artificial Intelligence",
+   "credits": 3,
+   "offered": [
+    "fall",
+    "spring"
+   ],
+   "note_text": []
+  },
+  "COMPSCI 429": {
+   "code": "COMPSCI 429",
+   "kind": "elective",
+   "title": "Software Engineering Project Management",
+   "credits": 3,
+   "offered": [
+    "fall",
+    "spring"
+   ],
+   "note_text": []
+  },
+  "COMPSCI 445": {
+   "code": "COMPSCI 445",
+   "kind": "elective",
+   "title": "Information Systems",
+   "credits": 3,
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "COMPSCI 446": {
+   "code": "COMPSCI 446",
+   "kind": "elective",
+   "title": "Search Engines",
+   "credits": 3,
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "COMPSCI 485": {
+   "code": "COMPSCI 485",
+   "kind": "elective",
+   "title": "Applications of Natural Language Processing",
+   "credits": 3,
+   "offered": [
+    "fall",
+    "spring"
+   ],
+   "note_text": []
+  },
+  "COMPSCI 501": {
+   "code": "COMPSCI 501",
+   "kind": "elective",
+   "title": "Formal Language Theory",
+   "credits": 3,
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "COMPSCI 514": {
+   "code": "COMPSCI 514",
+   "kind": "elective",
+   "title": "Algorithms for Data Science",
+   "credits": 3,
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "COMPSCI 520": {
+   "code": "COMPSCI 520",
+   "kind": "elective",
+   "title": "Theory and Practice of Software Engineering",
+   "credits": 3,
+   "offered": [
+    "fall",
+    "spring"
+   ],
+   "note_text": []
+  },
+  "COMPSCI 532": {
+   "code": "COMPSCI 532",
+   "kind": "elective",
+   "title": "Systems for Data Science",
+   "credits": 3,
+   "offered": [
+    "fall",
+    "spring"
+   ],
+   "note_text": []
+  },
+  "COMPSCI 589": {
+   "code": "COMPSCI 589",
+   "kind": "elective",
+   "title": "Machine Learning",
+   "credits": 3,
+   "offered": [
+    "fall",
+    "spring"
+   ],
+   "note_text": []
+  },
+  "BIOLOGY 109": {
+   "code": "BIOLOGY 109",
+   "kind": "elective",
+   "title": "Evolution Explained",
+   "credits": 4,
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "BIOLOGY 110": {
+   "code": "BIOLOGY 110",
+   "kind": "elective",
+   "title": "Intro. Biology for Science Majors",
+   "credits": 4,
+   "offered": [
+    "spring"
+   ],
+   "note_text": []
+  },
+  "BIOLOGY 151": {
+   "code": "BIOLOGY 151",
+   "kind": "elective",
+   "title": "Intro. Biology I",
+   "credits": 4,
+   "offered": [
+    "fall",
+    "spring"
+   ],
+   "note_text": []
+  },
+  "ENVIRSCI 101": {
+   "code": "ENVIRSCI 101",
+   "kind": "elective",
+   "title": "Intro to Environmental Science",
+   "credits": 4,
+   "offered": [
+    "fall"
+   ],
+   "note_text": []
+  },
+  "MICROBIO 160": {
+   "code": "MICROBIO 160",
+   "kind": "elective",
+   "title": "Biology of Cancer and AIDS",
+   "credits": 4,
+   "offered": [
+    "fall",
+    "spring"
+   ],
+   "note_text": []
+  },
+  "MATH 235": {
+   "code": "MATH 235",
+   "title": "Linear Algebra",
+   "credits": 3,
+   "kind": "alternate",
+   "honors": false,
+   "note_text": []
+  },
+  "MATH 331": {
+   "code": "MATH 331",
+   "title": "Differential Equations",
+   "credits": 3,
+   "kind": "alternate",
+   "honors": false,
+   "note_text": []
+  },
+  "ECE 296C": {
+   "code": "ECE 296C",
+   "title": "Complex Numbers",
+   "credits": 1,
+   "kind": "alternate",
+   "honors": false,
+   "note_text": []
+  }
+ },
+ "edges": [
+  {
+   "from": "ECE 124",
+   "to": "ECE 331",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 241",
+   "to": "ECE 371",
+   "type": "prereq"
+  },
+  {
+   "from": "COMPSCI 250",
+   "to": "ECE 341",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 231",
+   "to": "ECE 304",
+   "type": "prereq"
+  },
+  {
+   "from": "PHYSICS 151",
+   "to": "ECE 202",
+   "type": "prereq"
+  },
+  {
+   "from": "PHYSICS 151",
+   "to": "PHYSICS 152",
+   "type": "prereq"
+  },
+  {
+   "from": "MATH 131",
+   "to": "MATH 132",
+   "type": "prereq"
+  },
+  {
+   "from": "MATH 131",
+   "to": "PHYSICS 151",
+   "type": "coreq"
+  },
+  {
+   "from": "MATH 132",
+   "to": "PHYSICS 152",
+   "type": "coreq"
+  },
+  {
+   "from": "MATH 132",
+   "to": "ECE 201",
+   "type": "prereq"
+  },
+  {
+   "from": "MATH 132",
+   "to": "ECE 210",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 415",
+   "to": "ECE 416",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 304",
+   "to": "ECE 415",
+   "type": "prereq"
+  },
+  {
+   "from": "MATH 132",
+   "to": "ECE 202",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 202",
+   "to": "ECE 214",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 214",
+   "to": "ECE 304",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 122",
+   "to": "ECE 231",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 303",
+   "to": "ECE 304",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 325",
+   "to": "ECE 545",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 325",
+   "to": "ECE 527",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 325",
+   "to": "ECE 535",
+   "type": "prereq"
+  },
+  {
+   "from": "COMPSCI 250",
+   "to": "ECE 371",
+   "type": "prereq"
+  },
+  {
+   "from": "MATH 132",
+   "to": "COMPSCI 250",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 214",
+   "to": "ECE 371",
+   "type": "prereq"
+  },
+  {
+   "from": "ENGLWRIT 112",
+   "to": "ENGIN 351",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 202",
+   "to": "ECE 213",
+   "type": "prereq"
+  },
+  {
+   "from": "PHYSICS 152",
+   "to": "ECE 210",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 241",
+   "to": "ECE 322",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 231",
+   "to": "ECE 371",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 201",
+   "to": "ECE 214",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 201",
+   "to": "ECE 213",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 241",
+   "to": "COMPSCI 250",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 210",
+   "to": "ECE 213",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 124",
+   "to": "ECE 231",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 241",
+   "to": "ECE 341",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 241",
+   "to": "ECE 325",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 122",
+   "to": "ECE 241",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 231",
+   "to": "ECE 332",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 331",
+   "to": "ECE 332",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 322",
+   "to": "ECE 371",
+   "type": "coreq"
+  },
+  {
+   "from": "ECE 201",
+   "to": "ECE 244",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 333",
+   "to": "ECE 334",
+   "type": "prereq"
+  },
+  {
+   "from": "MATH 233",
+   "to": "ECE 244",
+   "type": "prereq"
+  },
+  {
+   "from": "PHYSICS 152",
+   "to": "ECE 244",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 558",
+   "to": "ECE 559",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 231",
+   "to": "ECE 558",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 210",
+   "to": "ECE 558",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 210",
+   "to": "ECE 310",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 333",
+   "to": "ECE 587",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 333",
+   "to": "ECE 572",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 344",
+   "to": "ECE 572",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 344",
+   "to": "ECE 571",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 213",
+   "to": "ECE 315",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 213",
+   "to": "ECE 396S",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 214",
+   "to": "ECE 315",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 310",
+   "to": "ECE 311",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 214",
+   "to": "ECE 396S",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 244",
+   "to": "ECE 333",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 244",
+   "to": "ECE 344",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 315",
+   "to": "ECE 311",
+   "type": "prereq"
+  },
+  {
+   "from": "ECE 396S",
+   "to": "ECE 565",
+   "type": "prereq"
+  }
+ ],
+ "terms": [
+  {
+   "year": 1,
+   "season": "fall",
+   "target": 16,
+   "items": [
+    "ENGIN 112",
+    "PHYSICS 151",
+    "MATH 131",
+    "SLOT 1",
+    "ENGLWRIT 112",
+    "FYS 191ENG"
+   ]
+  },
+  {
+   "year": 1,
+   "season": "spring",
+   "target": 16,
+   "items": [
+    "ECE 122",
+    "PHYSICS 152",
+    "MATH 132",
+    "ECE 124"
+   ]
+  },
+  {
+   "year": 2,
+   "season": "fall",
+   "target": 18,
+   "items": [
+    "ECE 201",
+    "ECE 202",
+    "ECE 210",
+    "ECE 241",
+    "SLOT 2"
+   ]
+  },
+  {
+   "year": 2,
+   "season": "spring",
+   "target": 16,
+   "items": [
+    "ECE 213",
+    "ECE 214",
+    "ECE 231",
+    "COMPSCI 250"
+   ]
+  },
+  {
+   "year": 3,
+   "season": "fall",
+   "target": 14,
+   "items": [
+    "ECE 322",
+    "ECE 371",
+    "ECE 331",
+    "ECE 303",
+    "ENGIN 351"
+   ]
+  },
+  {
+   "year": 3,
+   "season": "spring",
+   "target": 15,
+   "items": [
+    "ECE 304",
+    "SLOT 3",
+    "SLOT 4",
+    "SLOT 5",
+    "SLOT 6"
+   ]
+  },
+  {
+   "year": 4,
+   "season": "fall",
+   "target": 13,
+   "items": [
+    "ECE 415",
+    "SLOT 7",
+    "SLOT 8",
+    "SLOT 9"
+   ]
+  },
+  {
+   "year": 4,
+   "season": "spring",
+   "target": 13,
+   "items": [
+    "ECE 416",
+    "SLOT 10",
+    "SLOT 11",
+    "SLOT 12"
+   ]
+  }
+ ],
+ "pools": {
+  "note6": {
+   "id": "note6",
+   "label": "CompE Electives",
+   "options": [
+    "ECE 244",
+    "ECE 310",
+    "ECE 311",
+    "ECE 315",
+    "ECE 325",
+    "ECE 332",
+    "ECE 333",
+    "ECE 334",
+    "ECE 341",
+    "ECE 344",
+    "ECE 522",
+    "ECE 523",
+    "ECE 527",
+    "ECE 529",
+    "ECE 535",
+    "ECE 545",
+    "ECE 547",
+    "ECE 550",
+    "ECE 558",
+    "ECE 559",
+    "ECE 564",
+    "ECE 565",
+    "ECE 566",
+    "ECE 567",
+    "ECE 568",
+    "ECE 570",
+    "ECE 571",
+    "ECE 572",
+    "ECE 580",
+    "COMPSCI 311",
+    "COMPSCI 348",
+    "COMPSCI 383",
+    "COMPSCI 429",
+    "COMPSCI 445",
+    "COMPSCI 446",
+    "COMPSCI 485",
+    "COMPSCI 501",
+    "COMPSCI 514",
+    "COMPSCI 520",
+    "COMPSCI 532",
+    "COMPSCI 589"
+   ],
+   "choose": 7,
+   "rule": "Choose seven CompE Electives, including at least two 500-level courses (or above) that may not be used to satisfy the requirements for any other major. Each is 3 credits unless otherwise indicated."
+  },
+  "note5": {
+   "id": "note5",
+   "label": "Life Sciences Elective",
+   "options": [
+    "BIOLOGY 109",
+    "BIOLOGY 110",
+    "BIOLOGY 151",
+    "ENVIRSCI 101",
+    "MICROBIO 160"
+   ],
+   "choose": 1,
+   "rule": "The Life Sciences Elective can be fulfilled with any of the following five approved courses. All are 4 credits, and all fulfill the BS Gen Ed."
+  }
+ },
+ "requirements": [
+  {
+   "id": "note2",
+   "label": "Social World Electives / Diversity Requirements",
+   "items": [
+    "One Literature or Arts elective: AL or AT",
+    "One Historical Studies elective: HS",
+    "One Social and Behavioral elective: SB",
+    "One more elective: AL, AT, SB, I or SI"
+   ],
+   "text": "Choose four Social World Electives (four credits each) consisting of: 1. One Literature or Arts elective: AL or AT 2. One Historical Studies elective: HS 3. One Social and Behavioral elective: SB 4. One more elective: AL, AT, SB, I or SI Also, choose two courses to meet the Social & Cultural Diversity requirement: one course focusing on Global diversity (e.g., AL DG) and one course focusing on United States diversity (e.g., HS DU). Most students satisfy the Diversity requirement with two of their four Social World electives. In other words, with careful planning, four courses may be used to satisfy all six graduation requirements.  Choose DU or DG in the fall semester of your first year, if you don\u2019t already have credit for one. All first-semester engineering students are required to enroll in a First-Year or Transfer Seminar, e.g., FYS 191ENG or ENGIN 291T."
+  }
+ ],
+ "honors": [
+  "Commonwealth Honors College (CHC) and Departmental Honors (DH) students are encouraged to swap these two courses, so that they can take ENGIN 351H in the spring semester. Other rearrangements are possible as well. CHC and DH students should also enroll in ECE H371 in the fall."
+ ],
+ "notes": [
+  {
+   "n": 1,
+   "title": "ENGIN 112, Intro. to ECE",
+   "text": "In the Fall semester, choose one of the following: ENGIN 100: Intro. to Engineering ENGIN 110: Intro. to Chemical Engineering ENGIN 111: Intro. to Civil & Environmental Engineering >> ENGIN 112: Intro. to Electrical & Computer Engineering ENGIN 113: Intro. to Mechanical & Industrial Engineering ENGIN 114: Intro. to Biomedical Engineering ENGIN 112 is strongly recommended for CompE and EE majors."
+  },
+  {
+   "n": 2,
+   "title": "Social World Electives / Diversity Requirements",
+   "text": "Choose four Social World Electives (four credits each) consisting of: 1. One Literature or Arts elective: AL or AT 2. One Historical Studies elective: HS 3. One Social and Behavioral elective: SB 4. One more elective: AL, AT, SB, I or SI Also, choose two courses to meet the Social & Cultural Diversity requirement: one course focusing on Global diversity (e.g., AL DG) and one course focusing on United States diversity (e.g., HS DU). Most students satisfy the Diversity requirement with two of their four Social World electives. In other words, with careful planning, four courses may be used to satisfy all six graduation requirements.  Choose DU or DG in the fall semester of your first year, if you don\u2019t already have credit for one. All first-semester engineering students are required to enroll in a First-Year or Transfer Seminar, e.g., FYS 191ENG or ENGIN 291T."
+  },
+  {
+   "n": 3,
+   "title": "ECE 287, Design Project",
+   "text": "In the spring, first-year students looking for a hands-on experience may choose to take a 1-credit \u201cDesign Project\u201d. Students who are planning on taking ECE 287 in their first year will need to take ENGLWRIT 112 in the fall. Other students may take ECE 287 any fall or spring."
+  },
+  {
+   "n": 4,
+   "title": "ECE 201, Analytical Tools for ECE",
+   "text": "Students may substitute MATH 235, Linear Algebra, and MATH 331, Differential Equations, for ECE 201. A 1-credit Independent Study (ECE 296C) covering Complex Numbers is needed to fulfill the graduation requirement for ECE 201. All three courses need to be completed before taking ECE 213 and/or ECE 214."
+  },
+  {
+   "n": 5,
+   "title": "Life Sciences Elective",
+   "text": "The Life Sciences Elective can be fulfilled with any of the following five approved courses. All are 4 credits, and all fulfill the BS Gen Ed. BIOLOGY 109: Evolution Explained (2nd sem) BIOLOGY 110: Intro. Biology for Science Majors (2nd sem) BIOLOGY 151: Intro. Biology I (both sem) ENVIRSCI 101: Intro to Environmental Science (1st sem) MICROBIO 160: Biology of Cancer and AIDS (both sem) You may choose to take your Life Sciences elective in the fall and take ENGIN 351 in the spring. DH students should take ENGIN 351H in the spring. To use BIOLOGY 110, move this elective earlier or ask for an override, as only first-year and second-year students may self-enroll on SPIRE. Students with credit for CHEM 111 may take any BS Gen Ed. Many other resources can be found at ECE Forms & Documents. Updated March 2024"
+  },
+  {
+   "n": 6,
+   "title": "CompE Electives",
+   "text": "Choose seven CompE Electives, including at least two 500-level courses (or above) that may not be used to satisfy the requirements for any other major. Each is 3 credits unless otherwise indicated. ECE 244: Modern Physics and Materials for EE (2nd sem) 4 cr ECE 310: Circuits & Electronics II (1st sem) 4 cr ECE 311: Intermediate Electronics (2nd sem) ECE 315: Signal Processing Methods (1st sem) ECE 325: Computer Networking (2nd sem) ECE 332: Embedded Systems Lab (2nd sem) ECE 333: Fields and Waves I (1st sem) ECE 334: Fields and Waves II (2nd sem) ECE 341: Algorithms for Computer Engineering (2nd sem) \u2020 ECE 344: Fundamentals of Semiconductor Devices (1st sem) ECE 522: Modeling and Verification of Embedded Systems (2nd sem) ECE 523: Design Principles for Low-Power Embed. Comp. Sys. (2nd sem) ECE 527: AI-Based Wireless Network Design (1st sem) ECE 529: Applied ML for the Internet of Things (2nd sem) ECE 535: Networked Embedded System Design (1st sem) ECE 545: Network Security and Privacy (1st sem) ECE 547: Security Engineering (2nd sem) ECE 550: Intro. Quantum Computing (2nd sem) ECE 558: VLSI Design Principles (1st sem) 4 cr ECE 559: VLSI Design Project (2nd sem) ECE 564: Communication Systems (2nd sem) ECE 565: Digital Signal Processing and Representation (1st sem) ECE 566: Image Processing (1st sem) ECE 567: Synthesis and Verification of Digital Systems (1st sem) ECE 568: Introduction to Computer Architecture (1st sem) ECE 570: Operating Systems (2nd sem) ECE 571: Microelectronic Fabrication (2nd sem) 4 cr ECE 572: Optoelectronics (2nd sem) ECE 580: Feedback Control Systems (1st sem) Some courses shown are not offered every year. Some approved electives are not shown. All ECE 5xx and 6xx courses (except ECE 596 and 696) are allowed as well. (Instructor permission is required for 600-level courses.) Consult SPIRE to check offerings and availability. The following courses are approved as CompE electives, but enrollment in them is not guaranteed. To request an override into a COMPSCI course, follow the posted instructions at https://www.cics.umass.edu/ugrad-education/overrides. Note that the online CICS Override Request Form changes each semester. COMPSCI 311: Intro to Algorithms (both sem) 4 cr \u2020 COMPSCI 348: Principles of Data Science (2nd sem) COMPSCI 383: Artificial Intelligence (both sem) COMPSCI 429: Software Engineering Project Management (both sem) COMPSCI 445: Information Systems (2nd sem) COMPSCI 446: Search Engines (1st sem) COMPSCI 485: Applications of Natural Language Processing (both sem) COMPSCI 501: Formal Language Theory (2nd sem) COMPSCI 514: Algorithms for Data Science (1st sem) COMPSCI 520: Theory and Practice of Software Engineering (both sem) COMPSCI 532: Systems for Data Science (both sem) COMPSCI 589: Machine Learning (both sem) Consult SPIRE to check course offerings and availability. \u2020 You may use either ECE 341 or COMPSCI 311 as a CompE elective."
+  },
+  {
+   "n": 7,
+   "title": "Alternative Electives",
+   "text": "To propose a different course to satisfy your Life Sciences or one of your CompE electives, fill out the ECE Alternative Elective Requests form."
+  },
+  {
+   "n": 8,
+   "title": "Five-Year B.S. / M.S. in ECE",
+   "text": "The Department of Electrical and Computer Engineering offers a five- year program through which students can obtain a Bachelor of Science degree in Electrical or Computer Engineering as well as a Master of Science (M.S.) in Electrical and Computer Engineering within a five- year time frame. You may \u201cdouble-count\u201d two 500- or 600-level electives, then complete two more that are later transferred into the M.S. program, provided at least one of the four is 600-level. More information is posted at 4+1 Accelerated Master\u2019s Degree in ECE."
+  }
+ ],
+ "log": [
+  "p1: semester grid, 37 cells",
+  "p2: notes, 8 sections",
+  "p3: flowchart, 39 boxes, 40 arrows",
+  "p4: flowchart, 24 boxes, 21 arrows"
+ ]
+}

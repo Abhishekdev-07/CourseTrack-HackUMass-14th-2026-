@@ -1,0 +1,6 @@
+data/coursetrack.db
+data/secret.key
+data/uploads/
+data/cache/
+__pycache__/
+.pytest_cache/
