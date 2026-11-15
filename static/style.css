@@ -112,6 +112,7 @@ main{flex:1;display:flex;min-height:0}
 .col .sum{fill:var(--dim);font:11px var(--mono)}
 .col .tick{fill:var(--dim);font:11px var(--mono);cursor:pointer}
 .col .tick:hover{fill:var(--text)}.col .tick.all{fill:var(--green)}
+.col .clr{fill:var(--dim);font:11px var(--mono);cursor:pointer}.col .clr:hover{fill:var(--text)}
 .edge{fill:none;stroke:#3d3d3d;stroke-width:1.2}
 .edge.lit{stroke:#2a6b37}
 .edge.coreq{stroke-dasharray:5 4}.edge.alt{stroke-dasharray:2 4}

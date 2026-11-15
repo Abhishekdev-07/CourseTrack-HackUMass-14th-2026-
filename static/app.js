@@ -352,6 +352,12 @@ function setDone(ids, val) {
   toast(msg, true);
 }
 const toggleDone = id => setDone([id], !S.done[id]);
+function clearTerm(key) {                   // uncheck a whole term in one click (undoable)
+  const ids = Object.keys(plan().pos).filter(id => plan().pos[id] === key && S.done[id]);
+  if (!ids.length) return;
+  setDone(ids, false);
+  toast(`Unchecked ${ids.length} course${ids.length > 1 ? 's' : ''} in ${tlabel(key)}.`, false, true);
+}
 function toggleTerm(key) {
   const ids = Object.keys(plan().pos).filter(id => plan().pos[id] === key);
   setDone(ids, !ids.every(id => S.done[id]));
@@ -451,6 +457,7 @@ function render() {
       <text class="tn" x="14" y="22">Y${y} ${SNAME[s].toUpperCase()}</text>
       ${(() => { const st = loadState(ld, s); return `<text class="cr ${ld ? st : ''}" data-limits="1" x="${COLW - 14}" y="22" text-anchor="end"><title>${ld ? `${LOADTXT[st]}: normal ${lim(s)[0]}, max ${lim(s)[1]} credits. Click to change.` : 'Click to change credit limits.'}</title>${ld} cr${ld ? `<tspan class="lv" dx="5">(${LOADTXT[st]})</tspan>` : ''}</text>`; })()}
       ${ids.length ? `<text class="sum" x="14" y="42">total ${cum}</text>
+      ${ids.some(id => S.done[id]) ? `<text class="clr" data-clear="${k}" x="${COLW - 96}" y="42" text-anchor="end"><title>Uncheck every course in ${tlabel(k)}</title>clear</text>` : ''}
       <text class="tick ${all ? 'all' : ''}" data-term="${k}" x="${COLW - 14}" y="42" text-anchor="end">${all ? '✓ term done' : 'check term'}</text>` : ''}</g>`;
   }).join('');
 
@@ -879,9 +886,9 @@ svg.addEventListener('wheel', e => {
 let drag = null;
 svg.addEventListener('pointerdown', e => {
   if (!S.P || e.button) return;
-  const n = e.target.closest('.node'), tick = e.target.closest('.tick'), lims = e.target.closest('[data-limits]');
+  const n = e.target.closest('.node'), tick = e.target.closest('.tick'), lims = e.target.closest('[data-limits]'), clr = e.target.closest('[data-clear]');
   drag = { sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, id: n ? n.dataset.id : null, moved: false,
-           cb: !!e.target.closest('.cb'), term: tick ? tick.dataset.term : null, lims: !!lims };
+           cb: !!e.target.closest('.cb'), term: tick ? tick.dataset.term : null, lims: !!lims, clear: clr ? clr.dataset.clear : null };
   svg.setPointerCapture(e.pointerId);
 });
 svg.addEventListener('pointermove', e => {
@@ -905,6 +912,7 @@ svg.addEventListener('pointerup', () => {
   const d = drag; drag = null; svg.classList.remove('panning');
   if (!d.moved) {                                // a click
     if (d.term) return toggleTerm(d.term);
+    if (d.clear) return clearTerm(d.clear);
     if (d.lims) return openLimits();
     if (d.id && d.cb) return toggleDone(d.id);
     return select(d.id);                         // card = open it, background = close

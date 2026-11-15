@@ -301,3 +301,16 @@ def test_fast_program_switch_lands_on_the_last_choice(page):
     page.evaluate("window.fetch = window._f")
     assert page.evaluate("S.P.id") == PIDS["compe"] == page.input_value("#progSel")
     assert page.locator('.node[data-id="ECE 322"]').count() == 1    # a CompE-only course is on the map
+
+
+def test_clear_a_term(page):
+    fresh(page)
+    clear = '.clr[data-clear="1-fall"]'
+    assert page.locator(clear).count() == 0                        # nothing checked, nothing to clear
+    page.locator('.node[data-id="MATH 131"] .cb').click()
+    page.locator('.node[data-id="ENGIN 112"] .cb').click()         # a partly checked term
+    page.locator(clear).click()
+    assert page.evaluate("Object.keys(plan().pos).filter(i => plan().pos[i] === '1-fall' && S.done[i]).length") == 0
+    assert page.locator(clear).count() == 0
+    page.click("#toast #tUndo")
+    assert page.evaluate("!!S.done['MATH 131'] && !!S.done['ENGIN 112']")
