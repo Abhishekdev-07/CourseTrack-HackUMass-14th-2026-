@@ -30,8 +30,11 @@ select:focus,input:focus,textarea:focus{border-color:var(--blue)}
 .mono{font-family:var(--mono)}
 
 .brand{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-weight:700;font-size:14px;white-space:nowrap}
-.brand i{width:5px;height:14px;display:block}.brand span{margin-left:6px}
-.brand.big{font-size:22px}.brand.big i{width:8px;height:22px}
+/* logo: three steps, bottom-aligned, rising red -> green -> blue (margin-top keeps every box the same height) */
+.brand i{width:5px;display:block}.brand span{margin-left:6px}
+.brand i.r{height:6px;margin-top:8px}.brand i.g{height:10px;margin-top:4px}.brand i.b{height:14px}
+.brand.big{font-size:22px}.brand.big i{width:8px}
+.brand.big i.r{height:9px;margin-top:13px}.brand.big i.g{height:16px;margin-top:6px}.brand.big i.b{height:22px}
 i.r{background:var(--red)}i.g{background:var(--green)}i.b{background:var(--blue)}i.k{background:var(--dim)}
 
 /* signed out */
