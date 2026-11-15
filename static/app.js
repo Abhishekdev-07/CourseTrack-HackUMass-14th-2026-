@@ -13,7 +13,7 @@ const tkey = (y, s) => y + '-' + s;
 const tidx = k => { const [y, s] = k.split('-'); return (y - 1) * 4 + SEASONS.indexOf(s); };
 const tlabel = k => { const [y, s] = k.split('-'); return `Y${y} ${SNAME[s]}`; };
 
-const S = { user: null, P: null, plans: [], cur: 0, extra: false, done: {}, notes: {}, checks: {},
+const S = { user: null, P: null, plans: [], cur: 0, extra: false, done: {}, notes: {}, checks: {}, custom: {},
             sel: null, drawer: null, q: '', find: '', flash: {}, ai: null };
 const view = { x: 16, y: 10, k: 1 };
 let V = null, L = null;      // last validation, last layout
@@ -35,7 +35,7 @@ function store() {                       // personal state, saved to the account
 async function flush() {
   if (!S.P) return;
   clearTimeout(saveT);
-  const body = { plans: S.plans.slice(1), cur: S.cur, extra: S.extra, done: S.done, notes: S.notes, checks: S.checks };
+  const body = { plans: S.plans.slice(1), cur: S.cur, extra: S.extra, done: S.done, notes: S.notes, checks: S.checks, custom: S.custom };
   try { const r = await api('/api/state/' + S.P.id, { method: 'PUT', json: body }); $('#stSaved').textContent = r.ok ? 'saved' : 'not saved'; }
   catch (e) { $('#stSaved').textContent = 'not saved'; }
 }
@@ -68,22 +68,26 @@ async function boot() {
 
 /* ───────────── data ───────────── */
 const plan = () => S.plans[S.cur];
-const C = id => S.P.courses[id] || { code: id, title: '', credits: 0, kind: 'external' };
+// shared program course, else this user's own course (typed into an elective slot), else unknown
+const C = id => S.P.courses[id] || (S.custom[id] && { code: id, kind: 'custom', note_text: [], ...S.custom[id] })
+  || { code: id, title: '', credits: 0, kind: 'external' };
+const tagOf = item => (item.split(':')[1] || '').trim();
 const eff = (id, p = plan()) => p.fills[id] || id;
 
 function officialPlan() {
   const pos = {}, order = {}; let n = 0;
   S.P.terms.forEach(t => t.items.forEach(id => { pos[id] = tkey(t.year, t.season); order[id] = n++; }));
   S.order = order;
-  return { name: 'Official plan', locked: true, pos, fills: {} };
+  return { name: 'Official plan', locked: true, pos, fills: {}, meets: {} };
 }
 
 async function setProgram(P) {
   S.P = P; S.sel = null; S.drawer = null; S.q = ''; $('#q').value = '';
   let saved = {};
   try { saved = await (await api('/api/state/' + P.id)).json(); } catch (e) {}
-  S.plans = [officialPlan(), ...(saved.plans || []).map(p => ({ fills: {}, ...p, locked: false }))];
-  S.plans.slice(1).forEach(p => Object.keys(p.pos).forEach(id => { if (!P.courses[id]) delete p.pos[id]; }));
+  S.custom = saved.custom || {};
+  S.plans = [officialPlan(), ...(saved.plans || []).map(p => ({ fills: {}, meets: {}, ...p, locked: false }))];
+  S.plans.slice(1).forEach(p => Object.keys(p.pos).forEach(id => { if (!P.courses[id] && !S.custom[id]) delete p.pos[id]; }));
   S.cur = Math.min(saved.cur || 0, S.plans.length - 1);
   S.extra = !!saved.extra; S.done = saved.done || {}; S.notes = saved.notes || {}; S.checks = saved.checks || {};
   $('#empty').hidden = true; $('#stSaved').textContent = '';
@@ -189,7 +193,7 @@ function toggleTerm(key) {
 function editable() { if (plan().locked) fork(true); return plan(); }
 function fork(auto) {
   const src = plan(), n = S.plans.filter(p => !p.locked).length + 1;
-  S.plans.push({ name: 'My plan ' + n, locked: false, pos: { ...src.pos }, fills: { ...src.fills } });
+  S.plans.push({ name: 'My plan ' + n, locked: false, pos: { ...src.pos }, fills: { ...src.fills }, meets: { ...(src.meets || {}) } });
   S.cur = S.plans.length - 1;
   if (auto) toast(`Official plan stays as printed. Your change is in "${plan().name}".`);
 }
@@ -372,7 +376,9 @@ function dCourse() {
 
   if (slotC && code === nid) {                                  // an empty elective slot
     const pool = S.P.pools[slotC.pool], idx = tidx(placed), season = placed.split('-')[1];
+    const req = S.P.requirements.find(r => r.id === slotC.req);
     let h = `<h2>${esc(slotC.title)}</h2><div class="meta">${slotC.credits}${slotC.credits_max > slotC.credits ? '–' + slotC.credits_max : ''} cr · ${tlabel(placed)}</div>`;
+    const form = fillForm(nid, slotC, req);
     if (pool) {
       const taken = new Set(Object.values(p.fills)), q = S.find.trim().toLowerCase();
       h += `<input class="f" id="find" placeholder="Filter ${pool.options.length} options" value="${esc(S.find)}">` +
@@ -381,11 +387,12 @@ function dCourse() {
           const st = miss.length ? `<span class="no">needs ${miss.map(e => e.from).join(', ')}</span>` : C(o).offered && !C(o).offered.includes(season) ? `${C(o).offered.map(s => SNAME[s]).join('/')} only` : '<span class="ok">fits</span>';
           return `<div class="row" data-act="pick" data-slot="${esc(nid)}" data-id="${esc(o)}"><span class="c">${esc(o)}</span><span class="t">${esc(C(o).title)}</span><span class="s">${st}</span></div>`;
         }).join('');
-      h += sec('Rule', `<div class="note">${esc(pool.rule)}</div>`);
+      h += sec('Something else', form) + sec('Rule', `<div class="note">${esc(pool.rule)}</div>`);
     } else {
-      const r = S.P.requirements.find(r => r.id === slotC.req);
-      if (r) h += sec(r.label, r.items.map(i => `<div class="note">${esc(i)}</div>`).join(''), true);
+      h += form;
+      if (req) h += sec('Rule', `<div class="note">${esc(req.text)}</div>`);
     }
+    h += sec('My notes', noteBox(nid), true);
     return h + sec('Move', moveBox);
   }
 
@@ -401,16 +408,34 @@ function dCourse() {
   h += sec(`Needs first · ${pre.length}`, pre.map(e => courseRow(e.from, (e.type.endsWith('coreq') ? 'with · ' : '') + where(e.from),
       `<span class="del" data-act="deledge" data-i="${e.i}" title="Remove this link">×</span>`)).join('') || '<div class="muted">Nothing. Take it any time.</div>', true);
   h += sec(`Unlocks · ${unl.length}${allDown.size > unl.length ? ' (' + allDown.size + ' down the line)' : ''}`, unl.map(e => courseRow(e.to, where(e.to))).join(''));
-  h += sec('My notes', `<textarea id="note" data-code="${esc(code)}" placeholder="Professor, section, what to review, who to ask…">${esc(S.notes[code] || '')}</textarea>`, true);
+  const slotReq = slotC && S.P.requirements.find(r => r.id === slotC.req);
+  if (slotReq && slotReq.items.length) h += sec('Counts toward', slotReq.items.map((it, i) => meetBox(slotReq.id + ':' + i, it, (p.meets[nid] || []).includes(slotReq.id + ':' + i), nid)).join(''), true);
+  h += sec('My notes', noteBox(code), true);
   h += sec('Move', moveBox);
   const info = V.issues.filter(i => i.id === nid && i.lv === 'info').map(i => `<div class="issue info">${esc(i.msg)}</div>`).join('');
   const pdf = [...(c.note_text || []), ...((nid && nid !== code && C(nid).note_text) || [])].map(n => `<div class="note">${esc(n)}</div>`).join('');
   h += sec('From the PDF', info + pdf);
   h += sec('Edit', `<div class="inl"><input id="edTitle" value="${esc(c.title)}" placeholder="Title"><input id="edCr" value="${c.credits}" style="flex:0 0 44px"><button data-act="savecourse" data-id="${esc(code)}">Save</button></div>
-    <div class="inl"><input id="newPre" placeholder="Add prerequisite, e.g. MATH 132"><select id="newPreType" style="flex:0 0 78px"><option value="prereq">before</option><option value="coreq">with</option></select><button data-act="addedge" data-id="${esc(code)}">Add</button></div>`);
+    ${c.kind === 'custom' ? '<div class="muted" style="font-size:12px">Your own course: only you see it.</div>' : `<div class="inl"><input id="newPre" placeholder="Add prerequisite, e.g. MATH 132"><select id="newPreType" style="flex:0 0 78px"><option value="prereq">before</option><option value="coreq">with</option></select><button data-act="addedge" data-id="${esc(code)}">Add</button></div>`}`);
   return h;
 }
 
+const noteBox = key => `<textarea id="note" data-code="${esc(key)}" placeholder="Professor, section, what to review, who to ask…">${esc(S.notes[key] || '')}</textarea>`;
+const meetBox = (key, label, on, slot) => `<label class="chk"><input type="checkbox" name="meet" value="${esc(key)}" ${slot ? `data-meet="${esc(slot)}"` : ''} ${on ? 'checked' : ''}><span>${esc(label)}</span></label>`;
+function fillForm(slot, slotC, req) {            // "What are you taking?" - any course, even one the PDF never listed
+  return `<form id="fillForm" data-slot="${esc(slot)}" autocomplete="off">
+    <div class="muted" style="font-size:12px;margin-bottom:6px">What are you taking?</div>
+    <div class="inl"><input name="ccode" placeholder="Course code, e.g. HISTORY 101" required><input name="ccr" value="${slotC.credits}" title="Credits" style="flex:0 0 44px"></div>
+    <input class="f" name="ctitle" placeholder="Title (optional)" style="margin-top:6px">
+    ${req && req.items.length ? `<div class="muted" style="font-size:12px;margin-top:8px">Which of these does it satisfy?</div>` + req.items.map((it, i) => meetBox(req.id + ':' + i, it)).join('') : ''}
+    <button class="primary wide" type="submit" style="margin-top:8px">Fill this slot</button></form>`;
+}
+function fillSlot(slot, code, meets) {
+  const q = editable(); q.fills[slot] = code; q.meets = q.meets || {};
+  if (meets && meets.length) q.meets[slot] = meets; else delete q.meets[slot];
+  if (S.notes[slot]) { S.notes[code] = S.notes[code] ? S.notes[code] + '\n' + S.notes[slot] : S.notes[slot]; delete S.notes[slot]; }
+  S.sel = slot; S.find = ''; refresh();
+}
 const chk = (key, label) => `<label class="chk"><input type="checkbox" data-chk="${esc(key)}" ${S.checks[key] ? 'checked' : ''}><span>${esc(label)}</span></label>`;
 function dPlan() {
   const p = plan(), off = S.plans[0], vo = validate(off);
@@ -438,7 +463,10 @@ function dPlan() {
       ${/500-level/.test(pool.rule) ? `<div class="muted" style="font-size:12px">${hi} at 500-level or above</div>` : ''}` +
       slots.map(id => p.fills[id] ? courseRow(p.fills[id], tlabel(p.pos[id])) : `<div class="row" data-act="go" data-id="${esc(id)}"><span class="c muted">empty slot</span><span class="t"></span><span class="s">${tlabel(p.pos[id])}</span></div>`).join('') + `<div class="note">${esc(pool.rule)}</div>`);
   }
-  for (const r of S.P.requirements) h += sec(r.label, r.items.map((it, i) => chk(r.id + ':' + i, it)).join('') + `<div class="note">${esc(r.text)}</div>`);
+  const via = {};                                  // checklist key -> courses in this plan that meet it
+  for (const id in p.meets || {}) if (p.pos[id] && p.fills[id]) p.meets[id].forEach(k => (via[k] = via[k] || []).push(p.fills[id]));
+  for (const r of S.P.requirements) h += sec(r.label, r.items.map((it, i) => { const k = r.id + ':' + i;
+    return via[k] ? `<label class="chk"><input type="checkbox" checked disabled><span>${esc(it)} <span class="muted">· ${esc(via[k].join(', '))}</span></span></label>` : chk(k, it); }).join('') + `<div class="note">${esc(r.text)}</div>`);
   if ((S.P.rules || []).length) h += sec('Rules found by AI', S.P.rules.map((r, i) => chk('rule:' + i, r)).join(''));
   const alts = Object.values(S.P.courses).filter(c => c.kind === 'alternate');
   h += sec('Substitution courses', alts.map(c => courseRow(c.code, where(c.code))).join(''));
@@ -476,12 +504,12 @@ $('#side').addEventListener('click', async e => {
   if (a === 'close') { S.drawer = null; S.sel = null; render(); drawer(); }
   else if (a === 'go') { if (id) go(id); }
   else if (a === 'done') toggleDone(id);
-  else if (a === 'pick') { const q = editable(); q.fills[el.dataset.slot] = id; S.sel = el.dataset.slot; S.find = ''; refresh(); }
-  else if (a === 'unpick') { delete editable().fills[id]; refresh(); }
+  else if (a === 'pick') fillSlot(el.dataset.slot, id);
+  else if (a === 'unpick') { const q = editable(); delete q.fills[id]; delete (q.meets || {})[id]; refresh(); }
   else if (a === 'remove') { const q = editable(); delete q.pos[id]; delete q.fills[id]; delete S.done[id]; S.sel = null; S.drawer = null; refresh(); }
   else if (a === 'addplan') { const k = $('#addTerm').value; editable().pos[id] = k; S.sel = id; refresh(); focusOn(id); }
   else if (a === 'autofix') autoFix();
-  else if (a === 'reset') { p.pos = { ...S.plans[0].pos }; p.fills = {}; refresh(); }
+  else if (a === 'reset') { p.pos = { ...S.plans[0].pos }; p.fills = {}; p.meets = {}; refresh(); }
   else if (a === 'rename') { const n = prompt('Plan name', p.name); if (n) { p.name = n; refresh(); } }
   else if (a === 'delplan') { S.plans.splice(S.cur, 1); S.cur = 0; refresh(); }
   else if (a === 'deledge') { e.stopPropagation(); S.P.edges.splice(+el.dataset.i, 1); await saveProgram(); refresh(false); }
@@ -490,6 +518,7 @@ $('#side').addEventListener('click', async e => {
     if (!S.P.courses[from]) S.P.courses[from] = { code: from, title: '', credits: 3, kind: 'external', note_text: [] };
     S.P.edges.push({ from, to: id, type: $('#newPreType').value, source: 'user' }); await saveProgram(); refresh(false);
   }
+  else if (a === 'savecourse' && !S.P.courses[id] && S.custom[id]) { Object.assign(S.custom[id], { title: $('#edTitle').value, credits: +$('#edCr').value || S.custom[id].credits }); refresh(); toast('Saved to your account.'); }
   else if (a === 'savecourse') { const c = S.P.courses[id]; c.title = $('#edTitle').value; c.credits = +$('#edCr').value || c.credits; await saveProgram(); refresh(false); toast('Saved.'); }
   else if (a === 'newcourse') {
     const code = normCode($('#ncCode').value); if (!code) return toast('Type a course code like MATH 233.');
@@ -499,8 +528,27 @@ $('#side').addEventListener('click', async e => {
   else if (a === 'renameprog') { const n = prompt('Program name', S.P.name); if (n) { S.P.name = n; await saveProgram(); loadPrograms(S.P.id); } }
   else if (a === 'delprog') { if (confirm('Delete this program for everyone?')) { const r = await api('/api/program/' + S.P.id, { method: 'DELETE' }); if (r.ok) loadPrograms(); else toast((await r.json()).error); } }
 });
+$('#side').addEventListener('submit', e => {
+  e.preventDefault();
+  const f = e.target, v = n => f.elements.namedItem(n).value.trim();
+  if (f.id === 'fillForm') {
+    const code = normCode(v('ccode')), slot = f.dataset.slot;
+    if (!code) return toast('Type a course code like HISTORY 101.');
+    if (V.at[code]) return toast(`${code} is already in this plan (${tlabel(V.at[code].key)}).`);
+    const meets = [...f.querySelectorAll('input[name=meet]:checked')].map(x => x.value);
+    if (!S.P.courses[code]) S.custom[code] = { title: v('ctitle'), credits: +v('ccr') || C(slot).credits,
+      tags: meets.map(k => { const [r, i] = k.split(':'); return tagOf(S.P.requirements.find(x => x.id === r).items[i]); }).filter(Boolean) };
+    fillSlot(slot, code, meets);
+  }
+});
 $('#side').addEventListener('change', e => {
   if (e.target.id === 'moveTerm') moveTo(e.target.dataset.id, e.target.value);
+  if (e.target.dataset.meet) {                        // re-tag which checklist item a filled slot satisfies
+    const q = editable(), slot = e.target.dataset.meet, set = new Set(q.meets[slot] || []);
+    e.target.checked ? set.add(e.target.value) : set.delete(e.target.value);
+    if (set.size) q.meets[slot] = [...set]; else delete q.meets[slot];
+    refresh();
+  }
   if (e.target.dataset.chk) { S.checks[e.target.dataset.chk] = e.target.checked; store(); }
 });
 $('#side').addEventListener('input', e => {
@@ -528,7 +576,7 @@ $('#status').addEventListener('click', e => {
 let qi = 0, qHits = [];
 function qRender() {
   const q = S.q.trim().toLowerCase(), box = $('#qList');
-  qHits = !q ? [] : Object.values(S.P.courses).filter(c => c.kind !== 'slot' && (c.code + ' ' + c.title).toLowerCase().includes(q))
+  qHits = !q ? [] : [...Object.values(S.P.courses), ...Object.keys(S.custom).filter(k => !S.P.courses[k]).map(C)].filter(c => c.kind !== 'slot' && (c.code + ' ' + c.title).toLowerCase().includes(q))
     .sort((a, b) => (V.at[b.code] ? 1 : 0) - (V.at[a.code] ? 1 : 0) || a.code.localeCompare(b.code)).slice(0, 9);
   qi = Math.min(qi, Math.max(0, qHits.length - 1));
   box.hidden = !q;
