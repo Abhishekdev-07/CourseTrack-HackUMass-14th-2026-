@@ -8,7 +8,7 @@ Storage is deliberately simple so there is nothing to set up:
   data/coursetrack.db    SQLite: accounts + each user's plans, checkmarks and notes
 """
 import os, json, hashlib, threading, glob, sqlite3, secrets, re
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from functools import wraps
 from flask import Flask, request, jsonify, render_template, abort, session, g
 from werkzeug.utils import secure_filename
@@ -231,8 +231,14 @@ def program(pid):
         if g.user["guest"]:
             return jsonify(error="Create an account to delete programs."), 403
         os.remove(ppath(pid)); return jsonify(ok=True)
+    # Programs are shared. The log is append-only on the server: whatever log the client sends is ignored,
+    # and every save records who made it and when.
     p = request.get_json(); p["id"] = pid
-    save(p); return jsonify(ok=True)
+    old = load(pid) if os.path.exists(ppath(pid)) else {}
+    entry = {"msg": str(p.pop("_edit", "") or "program edited")[:300], "edited_by": g.user["username"],
+             "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    p["log"] = old.get("log", []) + [entry]
+    save(p); return jsonify(ok=True, log_entry=entry)
 
 
 @app.post("/api/upload")
@@ -268,6 +274,17 @@ def typed():
     p = extract.parse_typed(d.get("text", ""), d.get("name") or "My Program")
     if len(p["courses"]) < 1:
         return jsonify(error="No course codes found. Use lines like:  ECE 241 | Advanced Programming | 3 | prereq: ECE 122"), 400
+    p = library(p); save(p)
+    return jsonify(program=p, ai={"status": "off", "msg": ""})
+
+
+@app.post("/api/catalog")
+@login_required
+def catalog():
+    d = request.get_json(silent=True) or {}
+    p = extract.parse_catalog(d.get("text", ""), d.get("name") or "My Program")
+    if len(p["courses"]) < 2:
+        return jsonify(error="No course codes found. Paste lines like:  ECE 241 - Advanced Programming (3 credits)  followed by  Prerequisite: ECE 122."), 400
     p = library(p); save(p)
     return jsonify(program=p, ai={"status": "off", "msg": ""})
 

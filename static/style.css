@@ -27,6 +27,9 @@ button.toggle.on{border-color:var(--blue);color:var(--blue)}
 select,input,textarea{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:5px 8px;outline:none}
 select:focus,input:focus,textarea:focus{border-color:var(--blue)}
 .muted{color:var(--muted)} .spacer{flex:1}
+/* <summary> gets no focus ring from a mouse click, but keyboard focus stays visible */
+summary:focus:not(:focus-visible){outline:none}
+summary:focus-visible{outline:1px solid var(--blue);outline-offset:2px;border-radius:2px}
 .mono{font-family:var(--mono)}
 
 .brand{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-weight:700;font-size:14px;white-space:nowrap}
@@ -169,7 +172,7 @@ pre.log{white-space:pre-wrap;font:11.5px var(--mono);color:var(--muted);margin:0
 .sheet h2{margin:0 0 4px;font:700 17px var(--mono)}.sheet .x{position:absolute;right:12px;top:10px;border:0;background:none;font-size:20px}
 #drop{border:1px dashed var(--line2);border-radius:4px;padding:28px;text-align:center;margin:14px 0 10px;cursor:pointer}
 #drop.over,#drop:hover{border-color:var(--blue)}
-#progName,#typed{width:100%;margin-bottom:10px}
+#progName,#typed,#catalog{width:100%;margin-bottom:10px}
 .sheet details{margin-top:14px;color:var(--muted)}.sheet summary{cursor:pointer;margin-bottom:8px}
 #upMsg{margin-top:10px;font-size:12.5px;color:var(--red);min-height:18px}
 #toast{position:fixed;left:50%;bottom:40px;transform:translateX(-50%) translateY(12px);background:var(--s2);border:1px solid var(--line2);padding:8px 16px;border-radius:4px;opacity:0;transition:.25s;pointer-events:none;z-index:30;max-width:80vw;font-family:var(--mono);font-size:12.5px}

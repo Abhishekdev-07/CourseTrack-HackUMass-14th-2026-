@@ -10,6 +10,7 @@ from conftest import SAMPLES
 
 
 PIDS = {}
+DIALOG = {"accept": True, "seen": []}   # confirm() answers; tests may flip "accept"
 
 
 @pytest.fixture(scope="module")
@@ -33,7 +34,7 @@ def page(base_url):
         pg = b.new_page()
         errors = []
         pg.on("pageerror", lambda e: errors.append(str(e)))
-        pg.on("dialog", lambda d: d.accept())
+        pg.on("dialog", lambda d: (DIALOG["seen"].append(d.message), d.accept() if DIALOG["accept"] else d.dismiss()))
         pg.goto(base_url)
         yield pg
         b.close()
@@ -196,3 +197,41 @@ def test_auth_errors_sit_by_their_field_and_clear(page):
     assert page.text_content("#liPass-err") == ""
     page.press("#liPass", "Enter")
     page.wait_for_selector("#app:not([hidden])")
+
+
+def test_shared_edit_confirms_and_logs(page):
+    logout(page)
+    name = "e" + uuid.uuid4().hex[:8]
+    signup(page, name)
+    open_program(page, "compe")
+    page.fill("#q", "ECE 202"); page.press("#q", "Enter")
+    page.wait_for_selector("#side h2:text('ECE 202')")
+    page.click('#side summary:has-text("Edit")')
+    page.fill("#edTitle", "Computational Tools (edited)")
+    DIALOG["accept"], DIALOG["seen"][:] = False, []
+    page.click('#side [data-act="savecourse"]')                    # cancel: nothing changes
+    assert "for everyone" in DIALOG["seen"][0]
+    assert page.evaluate("S.P.courses['ECE 202'].title") != "Computational Tools (edited)"
+    DIALOG["accept"] = True
+    page.click('#side [data-act="savecourse"]')
+    page.wait_for_function("S.P.courses['ECE 202'].title === 'Computational Tools (edited)'")
+    page.click("#stProblems")
+    page.click('#side summary:has-text("Program")')
+    log = page.inner_text("#side pre.log")
+    assert f"{name}: ECE 202:" in log
+
+    s = '#side summary:has-text("Program")'                        # mouse focus: no ring; keyboard: ring
+    assert page.eval_on_selector(s, "e => getComputedStyle(e).outlineStyle") == "none"
+    page.keyboard.press("Shift+Tab"); page.keyboard.press("Tab")
+    assert page.eval_on_selector(s, "e => document.activeElement === e && getComputedStyle(e).outlineStyle") == "solid"
+
+
+def test_paste_catalog_text(page):
+    page.click("#btnUpload")
+    page.click('.sheet summary:has-text("Paste catalog text")')
+    page.fill("#catalog", "ECE 122 - Introduction to Programming (4 credits)\nECE 241 - Advanced Programming (3 credits)\nPrerequisite: ECE 122 and MATH 132.")
+    page.fill("#progName", "Pasted catalog")
+    page.click("#goCatalog")
+    page.wait_for_function("S.P && S.P.name === 'Pasted catalog'")
+    page.wait_for_selector('.node[data-id="ECE 241"]')
+    assert page.evaluate("S.P.edges.some(e => e.from === 'ECE 122' && e.to === 'ECE 241')")

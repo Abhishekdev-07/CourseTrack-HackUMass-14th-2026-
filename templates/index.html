@@ -100,6 +100,11 @@
     <input id="progName" placeholder="Program name (optional)">
     <button id="goUpload" class="primary">Build my tree</button>
     <details>
+      <summary>No PDF? Paste catalog text</summary>
+      <textarea id="catalog" rows="6" placeholder="Paste course descriptions from the online catalog, e.g.&#10;ECE 241 - Advanced Programming (3 credits)&#10;Prerequisite: ECE 122 and MATH 132."></textarea>
+      <button id="goCatalog">Build from catalog text</button>
+    </details>
+    <details>
       <summary>No PDF? Type your courses instead</summary>
       <textarea id="typed" rows="5" placeholder="One course per line:&#10;MATH 131 | Calculus I | 4 | term: 1 fall&#10;MATH 132 | Calculus II | 4 | prereq: MATH 131 | term: 1 spring"></textarea>
       <button id="goTyped">Build from text</button>

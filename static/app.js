@@ -39,7 +39,17 @@ async function flush() {
   try { const r = await api('/api/state/' + S.P.id, { method: 'PUT', json: body }); $('#stSaved').textContent = r.ok ? 'saved' : 'not saved'; }
   catch (e) { $('#stSaved').textContent = 'not saved'; }
 }
-const saveProgram = () => api('/api/program/' + S.P.id, { method: 'PUT', json: S.P });
+async function saveProgram(edit) {          // the server appends {msg, edited_by, at} to the program log
+  const r = await api('/api/program/' + S.P.id, { method: 'PUT', json: { ...S.P, _edit: edit } });
+  const d = await r.json().catch(() => ({}));
+  if (d.log_entry) (S.P.log = S.P.log || []).push(d.log_entry);
+  return r;
+}
+const sharedOK = what => confirm(`Programs are shared. This changes ${what} for everyone using "${S.P.name}", not just you.\n\nContinue?`);
+const logLine = l => { if (typeof l === 'string') return l;
+  const d = new Date(l.at), z = n => String(n).padStart(2, '0');
+  const t = isNaN(d) ? '' : `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
+  return `${t}  ${l.edited_by}: ${l.msg}`; };
 
 /* ───────────── accounts ───────────── */
 const USER_RE = /^[A-Za-z0-9_.\-]{3,24}$/;
@@ -535,7 +545,7 @@ function dCourse() {
 
 const swapRow = x => { const on = !!(plan().swaps || {})[x.id];
   return `<div class="row" style="cursor:default"><span class="t" style="white-space:normal"><b class="mono" style="font-size:12px">${esc(subLine(x))}</b><br>${esc(x.label || '')}</span>
-    <button class="${on ? '' : 'go'}" data-act="swap" data-sub="${esc(x.id)}" data-on="${on ? 0 : 1}">${on ? 'Turn off' : 'Turn on'}</button></div>`; };
+    <button data-act="swap" data-sub="${esc(x.id)}" data-on="${on ? 0 : 1}">${on ? 'Turn off' : 'Turn on'}</button></div>`; };
 const noteBox = key => `<textarea id="note" data-code="${esc(key)}" placeholder="Professor, section, what to review, who to ask…">${esc(S.notes[key] || '')}</textarea>`;
 const meetBox = (key, label, on, slot) => `<label class="chk"><input type="checkbox" name="meet" value="${esc(key)}" ${slot ? `data-meet="${esc(slot)}"` : ''} ${on ? 'checked' : ''}><span>${esc(label)}</span></label>`;
 function fillForm(slot, slotC, req) {            // "What are you taking?" - any course, even one the PDF never listed
@@ -586,7 +596,7 @@ function dPlan() {
   if ((S.P.rules || []).length) h += sec('Rules found by AI', S.P.rules.map((r, i) => chk('rule:' + i, r)).join(''));
   h += sec(`Swaps · ${activeSubs(p).length}/${SUBS().length}`, SUBS().map(swapRow).join('') || '<div class="muted">None in this program. Open a course to define one.</div>');
   h += sec('Heads-up · ' + infos.length, infos.map(i => `<div class="issue info" data-act="go" data-id="${esc(i.id || '')}">${esc(i.msg)}</div>`).join(''));
-  h += sec('Program', `<pre class="log">${esc((S.P.log || []).join('\n'))}</pre>
+  h += sec('Program', `<pre class="log">${esc((S.P.log || []).map(logLine).join('\n'))}</pre>
     ${S.ai && S.ai.msg ? `<div class="note">${esc(S.ai.msg)}</div>` : ''}
     <div class="inl" style="margin-top:8px"><input id="ncCode" placeholder="Add course, e.g. MATH 233"><input id="ncCr" placeholder="cr" style="flex:0 0 44px"><button data-act="newcourse">Add</button></div>
     <div class="btns" style="margin-top:8px"><button data-act="renameprog">Rename program</button><button class="danger" data-act="delprog">Delete program</button></div>`);
@@ -631,25 +641,37 @@ $('#side').addEventListener('click', async e => {
     if (codes.includes(id)) return toast(`${id} cannot stand in for itself.`);
     const sub = { id: 'sub-u' + Date.now().toString(36), replaces: [id], with: [...new Set(codes)], label: $('#swLabel').value.trim(), source: 'user' };
     sub.with.forEach(c => { if (!S.P.courses[c]) S.P.courses[c] = { code: c, title: (S.custom[c] || {}).title || '', credits: (S.custom[c] || {}).credits || 3, kind: 'alternate', note_text: [] }; });
-    S.P.substitutions = [...SUBS(), sub]; await saveProgram(); refresh(false); toast('Swap saved to the program. Turn it on to try it.');
+    S.P.substitutions = [...SUBS(), sub]; await saveProgram(`added swap ${subLine(sub)}`); refresh(false); toast('Swap saved to the program. Turn it on to try it.');
   }
   else if (a === 'reset') { p.pos = { ...S.plans[0].pos }; p.fills = {}; p.meets = {}; p.swaps = {}; p.swapped = {}; refresh(); }
   else if (a === 'rename') { const n = prompt('Plan name', p.name); if (n) { p.name = n; refresh(); } }
   else if (a === 'delplan') { S.plans.splice(S.cur, 1); S.cur = 0; refresh(); }
-  else if (a === 'deledge') { e.stopPropagation(); S.P.edges.splice(+el.dataset.i, 1); await saveProgram(); refresh(false); }
+  else if (a === 'deledge') {
+    e.stopPropagation(); const x = S.P.edges[+el.dataset.i];
+    if (!sharedOK(`the prerequisites of ${x.to}`)) return;
+    S.P.edges.splice(+el.dataset.i, 1); await saveProgram(`removed prerequisite ${x.from} -> ${x.to}`); refresh(false);
+  }
   else if (a === 'addedge') {
     const from = normCode($('#newPre').value); if (!from) return toast('Type a course code like MATH 132.');
+    if (!sharedOK(`the prerequisites of ${id}`)) return;
     if (!S.P.courses[from]) S.P.courses[from] = { code: from, title: '', credits: 3, kind: 'external', note_text: [] };
-    S.P.edges.push({ from, to: id, type: $('#newPreType').value, source: 'user' }); await saveProgram(); refresh(false);
+    const type = $('#newPreType').value;
+    S.P.edges.push({ from, to: id, type, source: 'user' }); await saveProgram(`added ${type} ${from} -> ${id}`); refresh(false);
   }
   else if (a === 'savecourse' && !S.P.courses[id] && S.custom[id]) { Object.assign(S.custom[id], { title: $('#edTitle').value, credits: +$('#edCr').value || S.custom[id].credits }); refresh(); toast('Saved to your account.'); }
-  else if (a === 'savecourse') { const c = S.P.courses[id]; c.title = $('#edTitle').value; c.credits = +$('#edCr').value || c.credits; await saveProgram(); refresh(false); toast('Saved.'); }
+  else if (a === 'savecourse') {
+    const c = S.P.courses[id], title = $('#edTitle').value, cr = +$('#edCr').value || c.credits;
+    if (title === c.title && cr === c.credits) return;
+    if (!sharedOK(`${id}'s title and credits`)) return;
+    const was = `"${c.title}", ${c.credits} cr`; c.title = title; c.credits = cr;
+    await saveProgram(`${id}: ${was} -> "${title}", ${cr} cr`); refresh(false); toast('Saved.');
+  }
   else if (a === 'newcourse') {
     const code = normCode($('#ncCode').value); if (!code) return toast('Type a course code like MATH 233.');
     S.P.courses[code] = S.P.courses[code] || { code, title: '', credits: +$('#ncCr').value || 3, kind: 'elective', note_text: [] };
-    await saveProgram(); select(code);
+    await saveProgram(`added course ${code}`); select(code);
   }
-  else if (a === 'renameprog') { const n = prompt('Program name', S.P.name); if (n) { S.P.name = n; await saveProgram(); loadPrograms(S.P.id); } }
+  else if (a === 'renameprog') { const n = prompt('Program name', S.P.name); if (n) { S.P.name = n; await saveProgram(`renamed to "${n}"`); loadPrograms(S.P.id); } }
   else if (a === 'delprog') { if (confirm('Delete this program for everyone?')) { const r = await api('/api/program/' + S.P.id, { method: 'DELETE' }); if (r.ok) loadPrograms(); else toast((await r.json()).error); } }
 });
 $('#side').addEventListener('submit', e => {
@@ -799,6 +821,7 @@ $('#goUpload').addEventListener('click', async () => {
   $('#upMsg').textContent = 'Reading the PDF…';
   built(await api('/api/upload', { method: 'POST', body: fd }));
 });
+$('#goCatalog').addEventListener('click', async () => built(await api('/api/catalog', { method: 'POST', json: { text: $('#catalog').value, name: $('#progName').value } })));
 $('#goTyped').addEventListener('click', async () => built(await api('/api/typed', { method: 'POST', json: { text: $('#typed').value, name: $('#progName').value } })));
 function pollAI(id) {
   const t = setInterval(async () => {

@@ -351,8 +351,11 @@ def merge_substitutions(subs):
 
 
 def parse_prereq_text(page):
-    """Catalog-style text: 'ECE 241 ... Prerequisite(s): ECE 122 and MATH 132.'"""
-    text = page.get_text()
+    """Catalog-style page: 'ECE 241 ... Prerequisite(s): ECE 122 and MATH 132.'"""
+    return prereq_edges(page.get_text())
+
+
+def prereq_edges(text):
     edges = []
     for m in re.finditer(r"((?:Pre|Co)-?requisites?)\s*:?\s*([^.\n]{3,160})", text, re.I):
         before = text[max(0, m.start() - 400):m.start()]
@@ -414,14 +417,7 @@ def extract_pdfs(paths, name=None):
             if pe:
                 log.append(f"p{pno+1}: prerequisite text, {len(pe)} links")
                 edges += pe
-                for l in page_lines(page):
-                    m = re.match(r"^([A-Z][A-Z&\-]{1,9}\s?H?\d{3}[A-Z]{0,3})[\s:–-]+(.{4,70}?)(?:\s*\(?(\d)\s*(?:cr|credits?)\)?)?$", l["t"])
-                    if m:
-                        code, _ = find_code(m.group(1))
-                        c = courses.setdefault(code, {"code": code, "kind": "required"})
-                        c.setdefault("title", clean(m.group(2)))
-                        if m.group(3):
-                            c["credits"] = int(m.group(3))
+                catalog_courses((l["t"] for l in page_lines(page)), courses)
     return assemble(courses, edges, plans[0] if plans else None, notes, honors, alternates,
                     name or title_guess or "My Program", log, subs)
 
@@ -530,6 +526,31 @@ def auto_plan(courses, edges, cap=16):
     n = max(term_of.values(), default=0) + 1
     return [{"year": i // 2 + 1, "season": "fall" if i % 2 == 0 else "spring", "target": None,
              "items": [c for c in req if term_of[c] == i]} for i in range(n + (n % 2))]
+
+
+COURSE_LINE_RE = re.compile(r"^([A-Z][A-Z&\-]{1,9}\s?H?\d{3}[A-Z]{0,3})[\s:.–-]+(.{4,70}?)\.?"
+                            r"(?:\s*\(?(\d)\s*(?:cr|credits?)\.?\)?)?\.?$", re.I)
+
+
+def catalog_courses(lines, courses):
+    """Course header lines in catalog text: 'ECE 241 - Advanced Programming (3 credits)'."""
+    for t in lines:
+        m = COURSE_LINE_RE.match(t.strip())
+        if m and CODE_RE.fullmatch(m.group(1)):
+            code, _ = find_code(m.group(1))
+            c = courses.setdefault(code, {"code": code, "kind": "required"})
+            c.setdefault("title", clean(m.group(2)).rstrip("."))
+            if m.group(3):
+                c["credits"] = int(m.group(3))
+    return courses
+
+
+def parse_catalog(text, name="My Program"):
+    """Pasted catalog text (no PDF): the same course-line + 'Prerequisite:' parsing used on catalog pages."""
+    courses = catalog_courses(text.splitlines(), {})
+    edges = prereq_edges(text)
+    log = [f"catalog text: {len(courses)} courses, {len(edges)} links"]
+    return assemble(courses, edges, None, [], [], [], name, log)
 
 
 def parse_typed(text, name="My Program"):
