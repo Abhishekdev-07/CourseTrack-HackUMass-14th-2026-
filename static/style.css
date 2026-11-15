@@ -21,6 +21,8 @@ button.primary:hover{background:#79b8ff}
 button.go{background:var(--green);border-color:var(--green);color:#04140a;font-weight:600}
 button.go:hover{background:#56d364}
 button.danger:hover{border-color:var(--red);color:var(--red)}
+button:disabled,button:disabled:hover{opacity:.4;cursor:default;border-color:var(--line);background:var(--s1)}
+button.primary:disabled{background:var(--blue)}
 button.link{background:none;border:0;color:var(--muted);padding:5px 4px}
 button.link:hover{color:var(--text)}
 button.toggle.on{border-color:var(--blue);color:var(--blue)}
@@ -31,6 +33,14 @@ select:focus,input:focus,textarea:focus{border-color:var(--blue)}
 summary:focus:not(:focus-visible){outline:none}
 summary:focus-visible{outline:1px solid var(--blue);outline-offset:2px;border-radius:2px}
 .mono{font-family:var(--mono)}
+/* checkboxes look like the ones on the course cards: flat square, green tick when on */
+input[type=checkbox]{appearance:none;-webkit-appearance:none;width:14px;height:14px;margin:0;flex:none;border:1px solid var(--line2);border-radius:2px;background:var(--bg);cursor:pointer}
+input[type=checkbox]:hover{border-color:var(--text)}
+input[type=checkbox]:checked{border-color:var(--green);background:var(--green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 7.2l2.8 2.8 5.2-6.2' fill='none' stroke='%2304140a' stroke-width='2'/%3E%3C/svg%3E") center/12px no-repeat}
+input[type=checkbox]:disabled{cursor:default;opacity:.85}
+input[type=checkbox]:focus-visible{outline:1px solid var(--blue);outline-offset:2px}
+input[type=number]{-moz-appearance:textfield;font-family:var(--mono)}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 
 .brand{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-weight:700;font-size:14px;white-space:nowrap}
 /* logo: three steps, bottom-aligned, rising red -> green -> blue (margin-top keeps every box the same height) */
@@ -63,7 +73,9 @@ i.r{background:var(--red)}i.g{background:var(--green)}i.b{background:var(--blue)
 /* shell */
 #app{height:100%;display:flex;flex-direction:column}
 #top{height:46px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--line)}
-#progSel{max-width:220px}#planSel{max-width:150px}
+#progSel{max-width:260px;transition:opacity .15s}#progSel.loading{opacity:.5}#planSel{max-width:150px}
+.hist{display:flex}.hist button{padding:0 8px;height:29px;display:grid;place-items:center}
+.hist button:first-child{border-radius:4px 0 0 4px}.hist button:last-child{border-radius:0 4px 4px 0;margin-left:-1px}
 #searchWrap{position:relative;flex:1;max-width:420px;margin:0 auto}
 #q{width:100%;font-family:var(--mono);font-size:12.5px}
 #qList{position:absolute;top:34px;left:0;right:0;background:var(--s1);border:1px solid var(--line2);border-radius:4px;z-index:10;max-height:320px;overflow:auto}
@@ -93,7 +105,10 @@ main{flex:1;display:flex;min-height:0}
 .col .tn{fill:var(--text);font:700 12px var(--mono);letter-spacing:.5px}
 .col.extra .tn{fill:var(--muted)}
 .col .cr{fill:var(--muted);font:11.5px var(--mono)}
-.col .cr.bad{fill:var(--red)}
+.col .cr{cursor:pointer}.col .cr:hover{fill:var(--text)}
+.col .cr .lv{fill:var(--dim);font-size:10.5px}
+.col .cr.overload{fill:var(--text)}.col .cr.overload .lv{fill:var(--muted)}
+.col .cr.over,.col .cr.over .lv{fill:var(--red)}
 .col .sum{fill:var(--dim);font:11px var(--mono)}
 .col .tick{fill:var(--dim);font:11px var(--mono);cursor:pointer}
 .col .tick:hover{fill:var(--text)}.col .tick.all{fill:var(--green)}
@@ -163,7 +178,16 @@ main{flex:1;display:flex;min-height:0}
 #side input.f,#side textarea{width:100%}
 #side textarea{min-height:84px;resize:vertical;font-size:12.5px;line-height:1.45}
 .chk{display:flex;gap:8px;align-items:flex-start;padding:4px 0;font-size:12.5px;cursor:pointer}
-.chk input{accent-color:var(--green);margin-top:2px}
+.chk input{margin-top:2px}
+.opt{display:flex;align-items:center;gap:9px;padding:7px 8px;border:1px solid var(--line);border-radius:4px;margin-top:4px;cursor:pointer}
+.opt:hover{border-color:var(--line2);background:var(--s1)}
+.opt:has(input:checked){border-color:var(--line2)}
+.opt .t{flex:1;font-size:12.5px;min-width:0}.opt .s{font:11px var(--mono);color:var(--muted);white-space:nowrap}
+.lbl{font:600 11.5px var(--mono);letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin:14px 0 2px}
+#fillForm .f{margin-top:6px}
+input.codein{font-family:var(--mono);text-transform:uppercase}input.codein::placeholder{text-transform:none;font-family:var(--sans)}
+.lim{display:grid;grid-template-columns:1fr 64px 64px;gap:6px 8px;align-items:center;font-size:12.5px}
+.lim input{width:100%;text-align:right}
 .bar{height:4px;background:var(--s2);margin:6px 0 2px}.bar i{display:block;height:100%;background:var(--green)}
 pre.log{white-space:pre-wrap;font:11.5px var(--mono);color:var(--muted);margin:0}
 
@@ -177,4 +201,7 @@ pre.log{white-space:pre-wrap;font:11.5px var(--mono);color:var(--muted);margin:0
 #upMsg{margin-top:10px;font-size:12.5px;color:var(--red);min-height:18px}
 #toast{position:fixed;left:50%;bottom:40px;transform:translateX(-50%) translateY(12px);background:var(--s2);border:1px solid var(--line2);padding:8px 16px;border-radius:4px;opacity:0;transition:.25s;pointer-events:none;z-index:30;max-width:80vw;font-family:var(--mono);font-size:12.5px}
 #toast.on{opacity:1;transform:translateX(-50%)}
+#toast.act{pointer-events:auto}
+#toast button{background:none;border:0;padding:0 0 0 14px;color:var(--blue);font:inherit;cursor:pointer}
+#toast button:hover{color:var(--text)}
 #toast b{color:var(--green)}#toast u{color:var(--blue);text-decoration:none}

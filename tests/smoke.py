@@ -235,3 +235,69 @@ def test_paste_catalog_text(page):
     page.wait_for_function("S.P && S.P.name === 'Pasted catalog'")
     page.wait_for_selector('.node[data-id="ECE 241"]')
     assert page.evaluate("S.P.edges.some(e => e.from === 'ECE 122' && e.to === 'ECE 241')")
+
+
+def fresh(page, key="compe"):
+    logout(page)
+    signup(page, "z" + uuid.uuid4().hex[:8])
+    open_program(page, key)
+
+
+def test_undo_redo_reset_delete(page):
+    fresh(page)
+    page.evaluate("moveTo('ECE 202', '2-spring')")
+    assert pos(page, "ECE 202") == "2-spring" and page.is_enabled("#btnReset")
+    page.click("#btnUndo");  assert pos(page, "ECE 202") == "2-fall"
+    page.click("#btnRedo");  assert pos(page, "ECE 202") == "2-spring"
+    page.keyboard.press("Control+z"); assert pos(page, "ECE 202") == "2-fall"
+    page.keyboard.press("Control+Shift+z"); assert pos(page, "ECE 202") == "2-spring"
+
+    page.click("#btnReset")                                        # back to official, undoable from the toast
+    assert pos(page, "ECE 202") == "2-fall" and not page.is_enabled("#btnReset")
+    page.click("#toast #tUndo")
+    assert pos(page, "ECE 202") == "2-spring"
+
+    page.click("#stProblems"); page.click('#side [data-act="delplan"]')
+    assert page.evaluate("S.plans.length") == 1
+    page.click("#toast #tUndo")
+    assert page.evaluate("S.plans.length") == 2 and pos(page, "ECE 202") == "2-spring"
+
+
+def crtext(page, term):
+    """Visible credit label of a term column (without its hover <title>)."""
+    return page.eval_on_selector(f'.col[data-key="{term}"] .cr',
+        "e => [...e.childNodes].filter(n => n.nodeName !== 'title').map(n => n.textContent).join(' ')")
+
+
+def test_overload_is_allowed_until_your_max(page):
+    fresh(page)
+    page.evaluate("moveTo('ECE 231', '2-fall')")                    # 18 + 4 = 22 cr
+    cr = page.locator('.col[data-key="2-fall"] .cr')
+    assert crtext(page, "2-fall") == "22 cr (overload)"
+    assert "overload" in cr.get_attribute("class")
+    assert page.text_content("#stProblems").startswith("○ 0")
+    assert crtext(page, "1-fall") == "19 cr (within)"
+
+    cr.click()                                                     # header credits open the limits
+    page.wait_for_selector('#side details[data-sec="Credit limits"][open]')
+    page.fill('[data-lim="regular:1"]', "21"); page.press('[data-lim="regular:1"]', "Tab")
+    cr = page.locator('.col[data-key="2-fall"] .cr')
+    assert crtext(page, "2-fall") == "22 cr (over max)" and "over" in cr.get_attribute("class").split()
+    assert page.text_content("#stProblems").startswith("✕ 1")
+    assert page.is_visible('#side details[data-sec="Credit limits"][open]')   # panel did not snap shut
+    page.click('#side [data-act="limdefault"]')
+    assert page.text_content("#stProblems").startswith("○ 0")
+    page.reload(); page.wait_for_selector(".node")                 # limits are saved with the account
+    assert page.evaluate("S.limits.regular") == [19, 30]
+
+
+def test_fast_program_switch_lands_on_the_last_choice(page):
+    fresh(page)
+    page.evaluate("""ee => { const f = window.fetch; window._f = f;
+        window.fetch = (u, o) => String(u).includes('/api/program/' + ee) ? new Promise(r => setTimeout(r, 700)).then(() => f(u, o)) : f(u, o); }""", PIDS["ee"])
+    page.select_option("#progSel", PIDS["ee"])                     # slow
+    page.select_option("#progSel", PIDS["compe"])                  # fast, chosen last
+    page.wait_for_timeout(1200)
+    page.evaluate("window.fetch = window._f")
+    assert page.evaluate("S.P.id") == PIDS["compe"] == page.input_value("#progSel")
+    assert page.locator('.node[data-id="ECE 322"]').count() == 1    # a CompE-only course is on the map

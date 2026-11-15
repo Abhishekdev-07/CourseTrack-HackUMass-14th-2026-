@@ -22,6 +22,16 @@ NUMWORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
             "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 
 
+def program_name(t):
+    """'Curriculum Worksheet for the Computer Engineering Classes of 2021 through 2028'
+       -> 'Computer Engineering (2021-2028)', so programs stay tellable apart in a narrow menu."""
+    m = re.search(r"\bfor\s+(?:the\s+)?(.+?)\s+class(?:es)?\s+of\s+(\d{4})(?:\s*(?:through|to|-|–)\s*(\d{4}))?", t, re.I)
+    if m:
+        return f"{m.group(1)} ({m.group(2)}–{m.group(3)})" if m.group(3) else f"{m.group(1)} ({m.group(2)})"
+    t2 = re.sub(r"^(?:\d{4}[-–]\d{2,4}\s+)?(?:curriculum|degree|program|prerequisite)?\s*(?:worksheet|flowchart|requirements|map|plan)\s+(?:for\s+(?:the\s+)?)?", "", t, flags=re.I).strip()
+    return t2 if len(t2) >= 6 else t
+
+
 def norm_code(subj, num):
     subj = ALIASES.get(subj.upper(), subj.upper())
     return f"{subj} {num.upper()}"
@@ -386,7 +396,7 @@ def extract_pdfs(paths, name=None):
             if title_guess is None:
                 for l in page_lines(page):
                     if re.search(r"curriculum|flowchart|degree|program|major", l["t"], re.I) and 12 < len(l["t"]) < 110:
-                        title_guess = clean(l["t"]); break
+                        title_guess = program_name(clean(l["t"])); break
             g = parse_grid(page)
             if g:
                 log.append(f"p{pno+1}: semester grid, {sum(len(t['items']) for t in g['terms'])} cells")
@@ -429,6 +439,7 @@ def assemble(courses, edges, terms, notes, honors, alternates, name, log, subs=(
         nd.setdefault(n["n"], n)
     pools, requirements = {}, []
     slots = [c for c in courses.values() if c.get("kind") == "slot"]
+    required = {i for t in (terms or []) for i in t["items"]}    # never offer a required course as an elective
     for s in slots:
         pool_note = next((nd[r] for r in s.get("note_refs", []) if r in nd and len(nd[r]["options"]) >= 3), None)
         if pool_note:
@@ -438,6 +449,8 @@ def assemble(courses, edges, terms, notes, honors, alternates, name, log, subs=(
             p["choose"] += 1
             s["pool"] = pid
             for o in pool_note["options"]:
+                if o["code"] in required:
+                    continue
                 if o["code"] not in p["options"]:
                     p["options"].append(o["code"])
                 c = courses.setdefault(o["code"], {"code": o["code"]})

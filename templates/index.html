@@ -52,6 +52,8 @@
   <select id="progSel" title="Program"></select>
   <select id="planSel" title="Plan"></select>
   <button id="btnFork" title="Copy this plan to try changes">+ plan</button>
+  <button id="btnReset" title="Put this plan back to the official plan (undoable)" hidden>Reset</button>
+  <span class="hist"><button id="btnUndo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 2.5L2 6l3.5 3.5M2.5 6H10a4 4 0 010 8H7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="btnRedo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true" style="transform:scaleX(-1)"><path d="M5.5 2.5L2 6l3.5 3.5M2.5 6H10a4 4 0 010 8H7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span>
   <div id="searchWrap">
     <input id="q" placeholder="Search a course or subject   /" autocomplete="off" spellcheck="false">
     <div id="qList" hidden></div>

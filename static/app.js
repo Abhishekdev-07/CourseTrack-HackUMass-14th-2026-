@@ -3,8 +3,12 @@
    Colour = state only:  green done · blue ready · grey locked · red broken rule. */
 const SEASONS = ['fall', 'winter', 'spring', 'summer'];
 const SNAME = { fall: 'Fall', winter: 'Winter', spring: 'Spring', summer: 'Summer' };
-const COLW = 206, NW = 178, NH = 56, GAP = 10, HEAD = 62;
-const LIMIT = { fall: [19, 19], spring: [19, 19], winter: [4, 7], summer: [8, 12] }; // [heavy, max]
+const COLW = 218, NW = 178, NH = 56, GAP = 10, HEAD = 62;
+// credit limits per term type: [normal, max]. Above normal = an overload (allowed, flagged in brackets);
+// above max = a problem. The user can change them (Plan › Credit limits); saved with their state.
+const LIMITS = { regular: [19, 30], summer: [8, 12], winter: [4, 7] };
+const LIMIT_NAMES = { regular: 'Fall / Spring', summer: 'Summer', winter: 'Winter' };
+const FULLTIME = 12;
 const LEVELS = [[0, 'Freshman'], [30, 'Sophomore'], [60, 'Junior'], [90, 'Senior']];
 
 const $ = s => document.querySelector(s);
@@ -12,8 +16,20 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 const tkey = (y, s) => y + '-' + s;
 const tidx = k => { const [y, s] = k.split('-'); return (y - 1) * 4 + SEASONS.indexOf(s); };
 const tlabel = k => { const [y, s] = k.split('-'); return `Y${y} ${SNAME[s]}`; };
+const limKind = s => (s === 'fall' || s === 'spring' ? 'regular' : s);
+const lim = s => S.limits[limKind(s)] || LIMITS[limKind(s)];
+// within | overload | over | part  (part = below full-time in a regular term)
+function loadState(cr, s) {
+  const [n, m] = lim(s);
+  if (cr > m) return 'over';
+  if (cr > n) return 'overload';
+  if (limKind(s) === 'regular' && cr > 0 && cr < FULLTIME) return 'part';
+  return 'within';
+}
+const LOADTXT = { within: 'within', overload: 'overload', over: 'over max', part: 'part-time' };
 
 const S = { user: null, P: null, plans: [], cur: 0, extra: false, done: {}, notes: {}, checks: {}, custom: {},
+            limits: JSON.parse(JSON.stringify(LIMITS)), secOpen: {},
             sel: null, drawer: null, q: '', find: '', flash: {}, ai: null };
 const view = { x: 16, y: 10, k: 1 };
 let V = null, L = null;      // last validation, last layout
@@ -25,9 +41,32 @@ async function api(path, opts = {}) {
   if (r.status === 401 && !path.startsWith('/api/log') && !path.startsWith('/api/sign')) { showAuth(); throw new Error('signed out'); }
   return r;
 }
+/* Undo history: every personal change goes through store(), so store() snapshots it. Notes are left out
+   (text boxes have their own undo); which plan you are looking at is restored but is not itself a step. */
+const H = { past: [], future: [], last: null };
+const snapBody = () => JSON.stringify({ plans: S.plans.slice(1), done: S.done, custom: S.custom, checks: S.checks, limits: S.limits });
+const snap = () => ({ k: snapBody(), cur: S.cur });
+function record() {
+  const now = snap();
+  if (H.last && now.k !== H.last.k) { H.past.push(H.last); if (H.past.length > 200) H.past.shift(); H.future = []; }
+  H.last = now; histButtons();
+}
+function histButtons() { $('#btnUndo').disabled = !H.past.length; $('#btnRedo').disabled = !H.future.length; }
+function undo(dir = -1) {
+  const from = dir < 0 ? H.past : H.future, to = dir < 0 ? H.future : H.past;
+  if (!S.P || !from.length) return toast(dir < 0 ? 'Nothing to undo.' : 'Nothing to redo.');
+  to.push({ ...H.last, cur: S.cur });
+  const e = from.pop(), d = JSON.parse(e.k);
+  S.plans = [S.plans[0], ...d.plans]; S.done = d.done; S.custom = d.custom; S.checks = d.checks; S.limits = d.limits;
+  S.cur = Math.min(e.cur, S.plans.length - 1); H.last = e;
+  refresh();
+  toast(dir < 0 ? `Undone${H.past.length ? ` · ${H.past.length} more` : ''}` : 'Redone');
+}
+
 let saveT = null;
 function store() {                       // personal state, saved to the account (debounced)
   if (!S.P) return;
+  record();
   $('#stSaved').textContent = 'saving…';
   clearTimeout(saveT);
   saveT = setTimeout(flush, 500);
@@ -35,7 +74,7 @@ function store() {                       // personal state, saved to the account
 async function flush() {
   if (!S.P) return;
   clearTimeout(saveT);
-  const body = { plans: S.plans.slice(1), cur: S.cur, extra: S.extra, done: S.done, notes: S.notes, checks: S.checks, custom: S.custom };
+  const body = { plans: S.plans.slice(1), cur: S.cur, extra: S.extra, done: S.done, notes: S.notes, checks: S.checks, custom: S.custom, limits: S.limits };
   try { const r = await api('/api/state/' + S.P.id, { method: 'PUT', json: body }); $('#stSaved').textContent = r.ok ? 'saved' : 'not saved'; }
   catch (e) { $('#stSaved').textContent = 'not saved'; }
 }
@@ -196,26 +235,39 @@ function officialPlan() {
   return { name: 'Official plan', locked: true, pos, fills: {}, meets: {}, swaps: {}, swapped: {} };
 }
 
-async function setProgram(P) {
-  S.P = P; S.sel = null; S.drawer = null; S.q = ''; $('#q').value = '';
-  let saved = {};
-  try { saved = await (await api('/api/state/' + P.id)).json(); } catch (e) {}
+function setProgram(P, saved) {              // swap program + personal state in one step (no await in between)
+  const switched = S.P && S.P.id !== P.id;
+  S.P = P; S.sel = null; S.drawer = null; S.q = ''; S.find = ''; S.flash = {}; S.secOpen = {}; $('#q').value = ''; $('#qList').hidden = true;
   S.custom = saved.custom || {};
+  S.limits = JSON.parse(JSON.stringify(LIMITS));
+  for (const k in LIMITS) if (Array.isArray((saved.limits || {})[k])) S.limits[k] = saved.limits[k].map(Number);
   S.plans = [officialPlan(), ...(saved.plans || []).map(p => ({ fills: {}, meets: {}, swaps: {}, swapped: {}, ...p, locked: false }))];
   S.plans.slice(1).forEach(p => Object.keys(p.pos).forEach(id => { if (!P.courses[id] && !S.custom[id]) delete p.pos[id]; }));
   S.cur = Math.min(saved.cur || 0, S.plans.length - 1);
   S.extra = !!saved.extra; S.done = saved.done || {}; S.notes = saved.notes || {}; S.checks = saved.checks || {};
   $('#empty').hidden = true; $('#stSaved').textContent = '';
+  H.past = []; H.future = []; H.last = snap();
   refresh(false); fit();
+  if (switched) toast(`Now showing ${P.name}${S.plans.length > 1 ? ` · ${S.plans.length - 1} saved plan${S.plans.length > 2 ? 's' : ''}` : ''}`);
 }
 
+let loadSeq = 0;
 async function loadPrograms(selectId) {
+  const seq = ++loadSeq;                      // only the latest switch may win; slower, older responses are dropped
+  if (saveT) await flush();                   // save the program we are leaving first
   const list = await (await api('/api/programs')).json();
-  $('#progSel').innerHTML = list.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('') || '<option>no programs</option>';
+  if (seq !== loadSeq) return;
+  $('#progSel').innerHTML = list.map(p => `<option value="${p.id}" title="${esc(p.name)}">${esc(p.name)}</option>`).join('') || '<option>no programs</option>';
   if (!list.length) { S.P = null; $('#empty').hidden = false; ['#cols', '#edges', '#nodes'].forEach(s => $(s).innerHTML = ''); $('#side').hidden = true; return; }
   const id = (list.find(p => p.id === selectId) || list[0]).id;
-  $('#progSel').value = id;
-  await setProgram(await (await api('/api/program/' + id)).json());
+  $('#progSel').value = id; $('#progSel').title = list.find(p => p.id === id).name;
+  $('#progSel').classList.add('loading');
+  try {
+    const [P, saved] = await Promise.all([api('/api/program/' + id).then(r => r.json()),
+                                          api('/api/state/' + id).then(r => r.json()).catch(() => ({}))]);
+    if (seq !== loadSeq) return;
+    setProgram(P, saved || {});
+  } finally { if (seq === loadSeq) $('#progSel').classList.remove('loading'); }
 }
 
 /* ───────────── rules engine ───────────── */
@@ -247,10 +299,10 @@ function validate(p = plan()) {
       issues.push({ lv: 'info', id: t.id, msg: `${code} is listed as ${c.offered.map(s => SNAME[s]).join('/')} only. Check that a ${SNAME[season]} section exists.` });
   }
   for (const k in load) {
-    const s = k.split('-')[1], [w, h] = LIMIT[s];
-    if (load[k] > h) issues.push({ lv: 'err', key: k, msg: `${tlabel(k)} has ${load[k]} credits, over the usual ${h}-credit limit.` });
-    else if (load[k] > w) issues.push({ lv: 'info', key: k, msg: `${tlabel(k)} has ${load[k]} credits, a heavy ${SNAME[s]} load.` });
-    else if ((s === 'fall' || s === 'spring') && load[k] < 12) issues.push({ lv: 'info', key: k, msg: `${tlabel(k)} has ${load[k]} credits, below full-time (12).` });
+    const s = k.split('-')[1], [n, m] = lim(s), st = loadState(load[k], s);
+    if (st === 'over') issues.push({ lv: 'err', key: k, msg: `${tlabel(k)} has ${load[k]} credits, over your ${m}-credit maximum. Move a course or raise the limit in Credit limits.` });
+    else if (st === 'overload') issues.push({ lv: 'info', key: k, msg: `${tlabel(k)} has ${load[k]} credits: an overload (normal ${n}, max ${m}). Overloads usually need an advisor's approval.` });
+    else if (st === 'part') issues.push({ lv: 'info', key: k, msg: `${tlabel(k)} has ${load[k]} credits, below full-time (${FULLTIME}).` });
   }
   const lastKey = Object.values(p.pos).sort((a, b) => tidx(b) - tidx(a))[0] || '1-fall';
   let doneCr = 0;
@@ -308,11 +360,33 @@ function toggleTerm(key) {
 /* ───────────── plans ───────────── */
 function editable() { if (plan().locked) fork(true); return plan(); }
 function fork(auto) {
-  const src = plan(), n = S.plans.filter(p => !p.locked).length + 1;
+  const src = plan(), names = new Set(S.plans.map(p => p.name)); let n = 1;
+  while (names.has('My plan ' + n)) n++;
   S.plans.push({ name: 'My plan ' + n, locked: false, pos: { ...src.pos }, fills: { ...src.fills }, meets: { ...(src.meets || {}) },
     swaps: { ...(src.swaps || {}) }, swapped: JSON.parse(JSON.stringify(src.swapped || {})) });
   S.cur = S.plans.length - 1;
   if (auto) toast(`Official plan stays as printed. Your change is in "${plan().name}".`);
+}
+const sameKeys = (a, b) => JSON.stringify(Object.entries(a || {}).sort()) === JSON.stringify(Object.entries(b || {}).sort());
+const isChanged = (p = plan()) => !p.locked && (!sameKeys(p.pos, S.plans[0].pos) || Object.keys(p.fills).length > 0 || Object.keys(p.swaps || {}).length > 0);
+function resetPlan() {
+  const p = plan(); if (p.locked) return;
+  if (!isChanged(p)) return toast(`"${p.name}" already matches the official plan.`);
+  p.pos = { ...S.plans[0].pos }; p.fills = {}; p.meets = {}; p.swaps = {}; p.swapped = {};
+  refresh(); toast(`"${esc(p.name)}" is back to the official plan.`, true, true);
+}
+function deletePlan() {
+  const p = plan(); if (p.locked) return;
+  S.plans.splice(S.cur, 1); S.cur = 0; S.drawer = S.drawer === 'plan' ? 'plan' : null;
+  refresh(); toast(`Deleted "${esc(p.name)}".`, true, true);
+}
+function clearDone() {
+  const n = Object.keys(S.done).length; if (!n) return;
+  S.done = {}; refresh(); toast(`Cleared ${n} checkmark${n > 1 ? 's' : ''}.`, false, true);
+}
+function openLimits() {
+  S.drawer = 'plan'; S.secOpen['Credit limits'] = true; drawer();
+  const d = document.querySelector('#side [data-sec="Credit limits"]'); if (d) d.scrollIntoView({ block: 'nearest' });
 }
 function autoFix() {
   const p = editable(); const moves = new Set(); let guard = 0;
@@ -323,7 +397,7 @@ function autoFix() {
     for (let idx = is.fix.need, n = 0; n < 40; n++, idx++) {
       const s = SEASONS[idx % 4], key = tkey(Math.floor(idx / 4) + 1, s);
       const okSeason = c.offered ? c.offered.includes(s) : (s === 'fall' || s === 'spring');
-      if (okSeason && (v.load[key] || 0) + (c.credits || 0) <= LIMIT[s][1]) { p.pos[is.fix.tid] = key; break; }
+      if (okSeason && (v.load[key] || 0) + (c.credits || 0) <= lim(s)[0]) { p.pos[is.fix.tid] = key; break; }   // no new overloads
     }
     moves.add(is.fix.tid);
   }
@@ -375,7 +449,7 @@ function render() {
       <rect class="bg" width="${COLW}" height="${L.h}"/>
       ${i ? `<line class="sep" y1="6" y2="${L.h}"/>` : ''}
       <text class="tn" x="14" y="22">Y${y} ${SNAME[s].toUpperCase()}</text>
-      <text class="cr ${ld > LIMIT[s][1] ? 'bad' : ''}" x="${COLW - 14}" y="22" text-anchor="end">${ld} cr</text>
+      ${(() => { const st = loadState(ld, s); return `<text class="cr ${ld ? st : ''}" data-limits="1" x="${COLW - 14}" y="22" text-anchor="end"><title>${ld ? `${LOADTXT[st]}: normal ${lim(s)[0]}, max ${lim(s)[1]} credits. Click to change.` : 'Click to change credit limits.'}</title>${ld} cr${ld ? `<tspan class="lv" dx="5">(${LOADTXT[st]})</tspan>` : ''}</text>`; })()}
       ${ids.length ? `<text class="sum" x="14" y="42">total ${cum}</text>
       <text class="tick ${all ? 'all' : ''}" data-term="${k}" x="${COLW - 14}" y="42" text-anchor="end">${all ? '✓ term done' : 'check term'}</text>` : ''}</g>`;
   }).join('');
@@ -459,6 +533,8 @@ function refresh(save = true) { render(); chrome(); drawer(); if (save) store();
 function chrome() {
   $('#planSel').innerHTML = S.plans.map((p, i) => `<option value="${i}" ${i === S.cur ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
   $('#btnExtra').classList.toggle('on', S.extra);
+  $('#btnReset').hidden = plan().locked; $('#btnReset').disabled = !isChanged();
+  histButtons();
   const errs = V.issues.filter(i => i.lv === 'err').length, lv = level(V.doneCr);
   $('#xpBar').style.width = (100 * V.doneCr / Math.max(1, V.total)) + '%';
   $('#stDone').textContent = `✓ ${V.doneCr} / ${V.total} cr`;
@@ -475,7 +551,10 @@ function drawer() {
   el.hidden = !S.drawer;
   if (S.drawer) { el.innerHTML = '<button class="x" data-act="close" title="Close (Esc)">×</button>' + (S.drawer === 'plan' ? dPlan() : dCourse()); el.scrollTop = was ? 0 : top; }
 }
-const sec = (title, body, open) => body ? `<details ${open ? 'open' : ''} data-sec="${esc(title)}"><summary>${esc(title)}</summary>${body}</details>` : '';
+// sections remember being opened/closed by the user, so a re-render does not snap them back
+const secKey = t => t.split(' · ')[0];
+const sec = (title, body, open) => { if (!body) return ''; const k = secKey(title), o = k in S.secOpen ? S.secOpen[k] : open;
+  return `<details ${o ? 'open' : ''} data-sec="${esc(k)}"><summary>${esc(title)}</summary>${body}</details>`; };
 const termOptions = cur => L.cols.map(k => `<option value="${k}" ${k === cur ? 'selected' : ''}>${tlabel(k)}</option>`).join('');
 function courseRow(code, right, extra) {
   return `<div class="row" data-act="go" data-id="${esc(code)}"><span class="c">${esc(code)}</span><span class="t">${esc(C(code).title)}</span><span class="s">${right || ''}</span>${extra || ''}</div>`;
@@ -494,12 +573,12 @@ function dCourse() {
   if (slotC && code === nid) {                                  // an empty elective slot
     const pool = S.P.pools[slotC.pool], idx = tidx(placed), season = placed.split('-')[1];
     const req = S.P.requirements.find(r => r.id === slotC.req);
-    let h = `<h2>${esc(slotC.title)}</h2><div class="meta">${slotC.credits}${slotC.credits_max > slotC.credits ? '–' + slotC.credits_max : ''} cr · ${tlabel(placed)}</div>`;
+    let h = `<h2>${esc(slotC.title)}</h2><div class="meta">${slotC.credits}${slotC.credits_max > slotC.credits ? '–' + slotC.credits_max : ''} cr · ${tlabel(placed)} · empty slot</div>`;
     const form = fillForm(nid, slotC, req);
     if (pool) {
-      const taken = new Set(Object.values(p.fills)), q = S.find.trim().toLowerCase();
+      const taken = new Set(Object.values(p.fills)), q = S.find.trim().toLowerCase(), required = S.plans[0].pos;
       h += `<input class="f" id="find" placeholder="Filter ${pool.options.length} options" value="${esc(S.find)}">` +
-        pool.options.filter(o => !taken.has(o) && !V.at[o] && (!q || (o + ' ' + C(o).title).toLowerCase().includes(q))).map(o => {
+        pool.options.filter(o => !taken.has(o) && !V.at[o] && !required[o] && (!q || (o + ' ' + C(o).title).toLowerCase().includes(q))).map(o => {
           const miss = S.P.edges.filter(e => e.to === o && e.type === 'prereq' && C(e.from).kind !== 'external' && (!V.at[e.from] || V.at[e.from].idx >= idx));
           const st = miss.length ? `<span class="no">needs ${miss.map(e => e.from).join(', ')}</span>` : C(o).offered && !C(o).offered.includes(season) ? `${C(o).offered.map(s => SNAME[s]).join('/')} only` : '<span class="ok">fits</span>';
           return `<div class="row" data-act="pick" data-slot="${esc(nid)}" data-id="${esc(o)}"><span class="c">${esc(o)}</span><span class="t">${esc(C(o).title)}</span><span class="s">${st}</span></div>`;
@@ -526,7 +605,7 @@ function dCourse() {
       `<span class="del" data-act="deledge" data-i="${e.i}" title="Remove this link">×</span>`)).join('') || '<div class="muted">Nothing. Take it any time.</div>', true);
   h += sec(`Unlocks · ${unl.length}${allDown.size > unl.length ? ' (' + allDown.size + ' down the line)' : ''}`, unl.map(e => courseRow(e.to, where(e.to))).join(''));
   const slotReq = slotC && S.P.requirements.find(r => r.id === slotC.req);
-  if (slotReq && slotReq.items.length) h += sec('Counts toward', slotReq.items.map((it, i) => meetBox(slotReq.id + ':' + i, it, (p.meets[nid] || []).includes(slotReq.id + ':' + i), nid)).join(''), true);
+  if (slotReq && slotReq.items.length) h += sec('Counts toward', meetList(slotReq, nid, p.meets[nid] || [], p), true);
   h += sec('My notes', noteBox(code), true);
   h += sec('Move', moveBox);
   const mine = SUBS().filter(x => x.replaces.includes(code)), standsIn = activeSubs(p).filter(x => x.with.includes(code));
@@ -547,14 +626,30 @@ const swapRow = x => { const on = !!(plan().swaps || {})[x.id];
   return `<div class="row" style="cursor:default"><span class="t" style="white-space:normal"><b class="mono" style="font-size:12px">${esc(subLine(x))}</b><br>${esc(x.label || '')}</span>
     <button data-act="swap" data-sub="${esc(x.id)}" data-on="${on ? 0 : 1}">${on ? 'Turn off' : 'Turn on'}</button></div>`; };
 const noteBox = key => `<textarea id="note" data-code="${esc(key)}" placeholder="Professor, section, what to review, who to ask…">${esc(S.notes[key] || '')}</textarea>`;
-const meetBox = (key, label, on, slot) => `<label class="chk"><input type="checkbox" name="meet" value="${esc(key)}" ${slot ? `data-meet="${esc(slot)}"` : ''} ${on ? 'checked' : ''}><span>${esc(label)}</span></label>`;
-function fillForm(slot, slotC, req) {            // "What are you taking?" - any course, even one the PDF never listed
+// "One Historical Studies elective: HS" -> {name: 'Historical Studies', tag: 'HS'}
+function reqItem(it) {
+  const i = it.indexOf(':'), a = i < 0 ? it : it.slice(0, i), b = i < 0 ? '' : it.slice(i + 1);
+  let name = a.replace(/^\s*one\s+(more\s+)?/i, (m, more) => more ? 'Another ' : '').replace(/\s*electives?\s*$/i, '').trim();
+  if (!name || /^another$/i.test(name)) name = 'Any other';
+  return { name: name[0].toUpperCase() + name.slice(1), tag: b.trim().replace(/\s*,\s*|\s+or\s+/g, ' / ') };
+}
+function viaMap(p = plan(), except) {             // checklist key -> course codes in this plan that meet it
+  const via = {};
+  for (const id in p.meets || {}) if (id !== except && p.pos[id] && p.fills[id]) p.meets[id].forEach(k => (via[k] = via[k] || []).push(p.fills[id]));
+  return via;
+}
+const meetBox = (key, label, on, slot, via) => { const r = reqItem(label);
+  return `<label class="opt"><input type="checkbox" name="meet" value="${esc(key)}" ${slot ? `data-meet="${esc(slot)}"` : ''} ${on ? 'checked' : ''}>
+    <span class="t">${esc(r.name)}${via ? `<span class="muted"> · ${esc(via.join(', '))}</span>` : ''}</span><span class="s">${esc(r.tag)}</span></label>`; };
+const meetList = (req, slot, on, p) => { const via = viaMap(p, slot);
+  return req.items.map((it, i) => { const k = req.id + ':' + i; return meetBox(k, it, on && on.includes(k), on ? slot : null, via[k]); }).join(''); };
+function fillForm(slot, slotC, req) {            // any course, even one the PDF never listed
   return `<form id="fillForm" data-slot="${esc(slot)}" autocomplete="off">
-    <div class="muted" style="font-size:12px;margin-bottom:6px">What are you taking?</div>
-    <div class="inl"><input name="ccode" placeholder="Course code, e.g. HISTORY 101" required><input name="ccr" value="${slotC.credits}" title="Credits" style="flex:0 0 44px"></div>
-    <input class="f" name="ctitle" placeholder="Title (optional)" style="margin-top:6px">
-    ${req && req.items.length ? `<div class="muted" style="font-size:12px;margin-top:8px">Which of these does it satisfy?</div>` + req.items.map((it, i) => meetBox(req.id + ':' + i, it)).join('') : ''}
-    <button class="primary wide" type="submit" style="margin-top:8px">Fill this slot</button></form>`;
+    <div class="inl"><input name="ccode" class="codein" placeholder="e.g. HISTORY 101" aria-label="Course code" required>
+      <input name="ccr" type="number" min="0" max="12" value="${slotC.credits}" title="Credits" style="flex:0 0 52px">
+      <button class="primary" type="submit">Add</button></div>
+    <input class="f" name="ctitle" placeholder="Title (optional)">
+    ${req && req.items.length ? `<div class="lbl">Counts toward</div>${meetList(req, slot, null, plan())}` : ''}</form>`;
 }
 function fillSlot(slot, code, meets) {
   const q = editable(); q.fills[slot] = code; q.meets = q.meets || {};
@@ -575,13 +670,19 @@ function dPlan() {
       <div><b>${tlabel(V.lastKey)}</b><span>finish${delta ? ` · ${delta > 0 ? 'later' : 'earlier'} than official` : ''}</span></div>
     </div><div class="btns">
       ${errs.some(e => e.fix) ? '<button class="primary" data-act="autofix">Fix by pushing courses later</button>' : ''}
-      ${p.locked ? '' : '<button data-act="rename">Rename</button><button data-act="reset">Reset</button><button class="danger" data-act="delplan">Delete</button>'}
+      ${p.locked ? '' : `<button data-act="rename">Rename</button><button data-act="reset" ${isChanged(p) ? '' : 'disabled'}>Reset to official</button><button class="danger" data-act="delplan">Delete plan</button>`}
+      ${Object.keys(S.done).length ? '<button data-act="cleardone">Clear checkmarks</button>' : ''}
     </div>`;
   h += sec(`Problems · ${errs.length}`, errs.map(i => `<div class="issue" data-act="go" data-id="${esc(i.id || '')}">${esc(i.msg)}</div>`).join('') || '<div class="muted">None. Every prerequisite is in order.</div>', true);
   h += sec(`Changes from official · ${moved.length + added.length}`, moved.map(id => `<div class="row" data-act="go" data-id="${esc(id)}"><span class="c">${esc(C(id).kind === 'slot' ? C(id).title : id)}</span><span class="t"></span><span class="s">${tlabel(off.pos[id])} → ${tlabel(p.pos[id])}</span></div>`).join('') +
     added.map(id => courseRow(id, '+ ' + tlabel(p.pos[id]))).join(''));
   let cum = 0;
-  h += sec('Credits by term', L.cols.filter(k => V.load[k]).map(k => { cum += V.load[k]; return `<div class="row" style="cursor:default"><span class="c">${tlabel(k)}</span><span class="t"></span><span class="s">${V.load[k]} cr · total ${cum}</span></div>`; }).join(''));
+  h += sec('Credits by term', L.cols.filter(k => V.load[k]).map(k => { cum += V.load[k]; const st = loadState(V.load[k], k.split('-')[1]);
+    return `<div class="row" style="cursor:default"><span class="c">${tlabel(k)}</span><span class="t ${st === 'over' ? 'no' : ''}">${st === 'within' ? '' : LOADTXT[st]}</span><span class="s">${V.load[k]} cr · total ${cum}</span></div>`; }).join(''));
+  h += sec('Credit limits', `<div class="lim"><span></span><span class="muted">normal</span><span class="muted">max</span>` +
+    Object.keys(LIMITS).map(k => `<span>${LIMIT_NAMES[k]}</span>${[0, 1].map(i => `<input type="number" min="1" max="40" data-lim="${k}:${i}" value="${S.limits[k][i]}">`).join('')}`).join('') +
+    `</div><div class="muted" style="font-size:12px;margin-top:8px">Above normal is an overload: allowed, and marked in brackets on the term. Above max is a problem.</div>
+    <button data-act="limdefault" style="margin-top:8px">Restore defaults</button>`);
   for (const pool of Object.values(S.P.pools)) {
     const slots = Object.keys(p.pos).filter(id => C(id).pool === pool.id), chosen = slots.filter(id => p.fills[id]);
     const hi = chosen.filter(id => /\s[5-9]\d\d/.test(p.fills[id])).length;
@@ -589,8 +690,7 @@ function dPlan() {
       ${/500-level/.test(pool.rule) ? `<div class="muted" style="font-size:12px">${hi} at 500-level or above</div>` : ''}` +
       slots.map(id => p.fills[id] ? courseRow(p.fills[id], tlabel(p.pos[id])) : `<div class="row" data-act="go" data-id="${esc(id)}"><span class="c muted">empty slot</span><span class="t"></span><span class="s">${tlabel(p.pos[id])}</span></div>`).join('') + `<div class="note">${esc(pool.rule)}</div>`);
   }
-  const via = {};                                  // checklist key -> courses in this plan that meet it
-  for (const id in p.meets || {}) if (p.pos[id] && p.fills[id]) p.meets[id].forEach(k => (via[k] = via[k] || []).push(p.fills[id]));
+  const via = viaMap(p);
   for (const r of S.P.requirements) h += sec(r.label, r.items.map((it, i) => { const k = r.id + ':' + i;
     return via[k] ? `<label class="chk"><input type="checkbox" checked disabled><span>${esc(it)} <span class="muted">· ${esc(via[k].join(', '))}</span></span></label>` : chk(k, it); }).join('') + `<div class="note">${esc(r.text)}</div>`);
   if ((S.P.rules || []).length) h += sec('Rules found by AI', S.P.rules.map((r, i) => chk('rule:' + i, r)).join(''));
@@ -615,11 +715,17 @@ function go(code) {                  // jump to a course wherever it is: pan + h
   S.q = ''; $('#q').value = ''; $('#qList').hidden = true;
   select(nid || code, true);
 }
-function toast(m, html) { const t = $('#toast'); t[html ? 'innerHTML' : 'textContent'] = m; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 3600); }
+function toast(m, html, undoable) {
+  const t = $('#toast');
+  t.innerHTML = (html ? m : esc(m)) + (undoable ? '<button id="tUndo" title="Undo (Ctrl+Z)">Undo</button>' : '');
+  t.classList.toggle('act', !!undoable); t.classList.add('on');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on', 'act'), undoable ? 6000 : 3600);
+}
 function moveTo(id, key) {
   const p = editable(); if (p.pos[id] === key) return; p.pos[id] = key; refresh();
-  const n = V.issues.filter(i => i.lv === 'err').length;
+  const n = V.issues.filter(i => i.lv === 'err').length, s = key.split('-')[1], st = loadState(V.load[key] || 0, s);
   if (n) toast(`${n} problem${n > 1 ? 's' : ''}. Click the red count at the bottom to see or fix.`);
+  else if (st === 'overload') toast(`${tlabel(key)} is now ${V.load[key]} cr: an overload (max ${lim(s)[1]}). Click the term's credits to change limits.`);
 }
 const normCode = s => { const m = s.toUpperCase().trim().match(/^([A-Z&\-]+)\s*(H?\d{3}[A-Z]{0,3})$/); return m ? m[1] + ' ' + m[2] : null; };
 
@@ -643,9 +749,16 @@ $('#side').addEventListener('click', async e => {
     sub.with.forEach(c => { if (!S.P.courses[c]) S.P.courses[c] = { code: c, title: (S.custom[c] || {}).title || '', credits: (S.custom[c] || {}).credits || 3, kind: 'alternate', note_text: [] }; });
     S.P.substitutions = [...SUBS(), sub]; await saveProgram(`added swap ${subLine(sub)}`); refresh(false); toast('Swap saved to the program. Turn it on to try it.');
   }
-  else if (a === 'reset') { p.pos = { ...S.plans[0].pos }; p.fills = {}; p.meets = {}; p.swaps = {}; p.swapped = {}; refresh(); }
-  else if (a === 'rename') { const n = prompt('Plan name', p.name); if (n) { p.name = n; refresh(); } }
-  else if (a === 'delplan') { S.plans.splice(S.cur, 1); S.cur = 0; refresh(); }
+  else if (a === 'reset') resetPlan();
+  else if (a === 'cleardone') clearDone();
+  else if (a === 'limdefault') { S.limits = JSON.parse(JSON.stringify(LIMITS)); refresh(); }
+  else if (a === 'rename') {
+    const n = (prompt('Plan name', p.name) || '').trim().slice(0, 40);
+    if (!n || n === p.name) return;
+    if (S.plans.some(x => x !== p && x.name === n)) return toast(`There is already a plan called "${n}".`);
+    p.name = n; refresh();
+  }
+  else if (a === 'delplan') deletePlan();
   else if (a === 'deledge') {
     e.stopPropagation(); const x = S.P.edges[+el.dataset.i];
     if (!sharedOK(`the prerequisites of ${x.to}`)) return;
@@ -687,8 +800,16 @@ $('#side').addEventListener('submit', e => {
     fillSlot(slot, code, meets);
   }
 });
+$('#side').addEventListener('toggle', e => { if (e.target.tagName === 'DETAILS' && e.target.dataset.sec) S.secOpen[e.target.dataset.sec] = e.target.open; }, true);
 $('#side').addEventListener('change', e => {
   if (e.target.id === 'moveTerm') moveTo(e.target.dataset.id, e.target.value);
+  if (e.target.dataset.lim) {
+    const [k, i] = e.target.dataset.lim.split(':'), v = Math.round(+e.target.value);
+    if (!(v >= 1 && v <= 40)) { toast('Use a number from 1 to 40.'); return drawer(); }
+    const l = S.limits[k] = [...S.limits[k]]; l[+i] = v;
+    if (l[0] > l[1]) l[+i ? 0 : 1] = v;              // keep normal <= max
+    refresh();
+  }
   if (e.target.dataset.meet) {                        // re-tag which checklist item a filled slot satisfies
     const q = editable(), slot = e.target.dataset.meet, set = new Set(q.meets[slot] || []);
     e.target.checked ? set.add(e.target.value) : set.delete(e.target.value);
@@ -706,9 +827,13 @@ $('#side').addEventListener('input', e => {
   if (e.target.id === 'find') { S.find = e.target.value; const pos = e.target.selectionStart; drawer(); const f = $('#find'); f.focus(); f.setSelectionRange(pos, pos); }
 });
 $('#planSel').addEventListener('change', e => { S.cur = +e.target.value; refresh(); });
+$('#btnReset').addEventListener('click', resetPlan);
+$('#btnUndo').addEventListener('click', () => undo(-1));
+$('#btnRedo').addEventListener('click', () => undo(1));
+$('#toast').addEventListener('click', e => { if (e.target.id === 'tUndo') { $('#toast').classList.remove('on'); undo(-1); } });
 $('#btnFork').addEventListener('click', () => { fork(); refresh(); toast(`"${plan().name}" created. Drag courses to try a different path.`); });
 $('#btnExtra').addEventListener('click', () => { S.extra = !S.extra; refresh(); });
-$('#progSel').addEventListener('change', async e => { await flush(); loadPrograms(e.target.value); });
+$('#progSel').addEventListener('change', e => loadPrograms(e.target.value));
 $('#btnUpload').addEventListener('click', () => openUpload());
 $('#stProblems').addEventListener('click', () => { S.drawer = 'plan'; drawer(); });
 $('#stDone').addEventListener('click', () => { S.drawer = 'plan'; drawer(); });
@@ -754,9 +879,9 @@ svg.addEventListener('wheel', e => {
 let drag = null;
 svg.addEventListener('pointerdown', e => {
   if (!S.P || e.button) return;
-  const n = e.target.closest('.node'), tick = e.target.closest('.tick');
+  const n = e.target.closest('.node'), tick = e.target.closest('.tick'), lims = e.target.closest('[data-limits]');
   drag = { sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, id: n ? n.dataset.id : null, moved: false,
-           cb: !!e.target.closest('.cb'), term: tick ? tick.dataset.term : null };
+           cb: !!e.target.closest('.cb'), term: tick ? tick.dataset.term : null, lims: !!lims };
   svg.setPointerCapture(e.pointerId);
 });
 svg.addEventListener('pointermove', e => {
@@ -780,6 +905,7 @@ svg.addEventListener('pointerup', () => {
   const d = drag; drag = null; svg.classList.remove('panning');
   if (!d.moved) {                                // a click
     if (d.term) return toggleTerm(d.term);
+    if (d.lims) return openLimits();
     if (d.id && d.cb) return toggleDone(d.id);
     return select(d.id);                         // card = open it, background = close
   }
@@ -789,6 +915,9 @@ window.addEventListener('keydown', e => {
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
   if (e.key === 'Escape' && !typing) { if (!$('#modal').hidden) closeUpload(); else { S.drawer = null; S.sel = null; render(); drawer(); } }
   if ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key === 'k')) { e.preventDefault(); $('#q').focus(); $('#q').select(); }
+  if ((e.ctrlKey || e.metaKey) && !typing && (e.key === 'z' || e.key === 'Z' || e.key === 'y')) {
+    e.preventDefault(); undo(e.key === 'y' || e.shiftKey ? 1 : -1);
+  }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); flush().then(() => toast('Saved to your account.')); }
 });
 window.addEventListener('beforeunload', () => { if (saveT) flush(); });

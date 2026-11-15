@@ -62,3 +62,23 @@ def test_parse_catalog_text():
             ("ECE 241", "ECE 322", "prereq"), ("ECE 371", "ECE 322", "coreq")} <= got
     placed = {i: t for t in p["terms"] for i in t["items"]}
     assert p["terms"].index(placed["ECE 122"]) < p["terms"].index(placed["ECE 241"]) < p["terms"].index(placed["ECE 322"])
+
+
+def test_program_names_are_short_and_distinct(compe):
+    assert compe["name"] == "Computer Engineering (2021–2028)"
+    assert extract.program_name("Curriculum Worksheet for the Electrical Engineering Classes of 2021 through 2028") == "Electrical Engineering (2021–2028)"
+    assert extract.program_name("Prerequisite Flowchart for Computer Engineering") == "Computer Engineering"
+    assert extract.program_name("BS in Biology") == "BS in Biology"
+
+
+def test_pool_never_offers_a_required_course(compe):
+    required = {i for t in compe["terms"] for i in t["items"]}
+    for pool in compe["pools"].values():
+        assert not required & set(pool["options"])
+    opts = [{"code": c, "title": c, "offered": None, "credits": 3} for c in ("ECE 331", "ECE 341", "ECE 344")]
+    courses = {"ECE 331": {"code": "ECE 331", "title": "HW Org", "credits": 3, "kind": "required"},
+               "SLOT 1": {"code": "SLOT 1", "title": "Elective", "credits": 3, "kind": "slot", "note_refs": [6]}}
+    p = extract.assemble(courses, [], [{"year": 1, "season": "fall", "target": None, "items": ["ECE 331", "SLOT 1"]}],
+                         [{"n": 6, "title": "Electives", "text": "Choose one.", "options": opts, "checklist": []}], [], [], "T", [])
+    assert p["pools"]["note6"]["options"] == ["ECE 341", "ECE 344"]
+    assert p["courses"]["ECE 331"]["kind"] == "required"

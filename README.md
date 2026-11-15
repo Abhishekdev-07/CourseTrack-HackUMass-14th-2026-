@@ -7,6 +7,14 @@ Upload a curriculum PDF, get an interactive degree tree. Check off what you've c
     python app.py
 Open http://127.0.0.1:5000, create an account (or continue as guest), and pick a program or click **Upload PDF**. Sample PDFs are in `samples/`.
 
+## Planning tips
+- Drag a course to another term to start your own plan; the official plan never changes. **Reset** puts a plan back, and every change can be undone (**Ctrl+Z** / **Ctrl+Shift+Z**, or the arrows in the header).
+- Each term shows its credits and whether that load is `(within)` your normal limit, an `(overload)`, or `(over max)`. Only "over max" counts as a problem. Click a term's credits to set your own limits (defaults: 19 normal / 30 max for Fall and Spring).
+
+## Tests
+    pip install pytest playwright && python -m playwright install chromium
+    python -m pytest            # browser tests are skipped if Playwright is missing
+
 ## How it's built
 - `app.py`      Flask routes, accounts (SQLite + hashed passwords), per-user saved state
 - `extract.py`  PDF -> curriculum JSON. Reads the semester grid, the flowchart arrows and the notes straight from the PDF. No AI.
