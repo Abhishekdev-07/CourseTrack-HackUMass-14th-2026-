@@ -1418,5 +1418,31 @@
   "p2: notes, 8 sections",
   "p3: flowchart, 39 boxes, 40 arrows",
   "p4: flowchart, 24 boxes, 21 arrows"
+ ],
+ "substitutions": [
+  {
+   "replaces": [
+    "ECE 201"
+   ],
+   "with": [
+    "MATH 235",
+    "MATH 331",
+    "ECE 296C"
+   ],
+   "label": "Substitute three courses for ECE 201",
+   "source": "pdf",
+   "id": "sub-2af8e3de"
+  },
+  {
+   "replaces": [
+    "ECE 341"
+   ],
+   "with": [
+    "COMPSCI 311"
+   ],
+   "label": "You may use either ECE 341 or COMPSCI 311 as a CompE elective.",
+   "source": "pdf",
+   "id": "sub-1bead9df"
+  }
  ]
 }

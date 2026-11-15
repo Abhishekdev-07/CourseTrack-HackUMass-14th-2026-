@@ -114,3 +114,52 @@ def test_fill_any_slot_with_custom_course(page):
     signup(page, "b" + uuid.uuid4().hex[:8])
     open_program(page, "ee")
     assert page.locator('.node .code:text("HISTORY 101")').count() == 0
+
+
+def total_cr(page):
+    return int(page.text_content("#stDone").split("/")[1].split()[0])
+
+
+def pos(page, code):
+    return page.evaluate("c => plan().pos[c] || null", code)
+
+
+def drag_to(page, node_id, term):
+    a = page.locator(f'.node[data-id="{node_id}"] .card').bounding_box()
+    b = page.locator(f'.col[data-key="{term}"] rect.bg').bounding_box()
+    page.mouse.move(a["x"] + 60, a["y"] + 30); page.mouse.down()
+    page.mouse.move(a["x"] + 90, a["y"] + 40, steps=4)
+    page.mouse.move(b["x"] + b["width"] / 2, a["y"] + 30, steps=8); page.mouse.up()
+
+
+def test_swap_ece201_for_math_path(page):
+    logout(page)
+    signup(page, "w" + uuid.uuid4().hex[:8])
+    open_program(page, "compe")
+    before = total_cr(page)
+    page.fill("#q", "ECE 201"); page.press("#q", "Enter")
+    page.wait_for_selector("#side h2:text('ECE 201')")
+    page.click('#side summary:has-text("Swap this course")')
+    page.click('#side .row:has-text("MATH 235") button:has-text("Turn on")')
+
+    assert page.locator('.node[data-id="ECE 201"]').count() == 0
+    for c in ("MATH 235", "MATH 331", "ECE 296C"):
+        assert pos(page, c) == "2-fall"
+    for c in ("ECE 213", "ECE 214"):
+        assert "err" not in page.get_attribute(f'.node[data-id="{c}"]', "class")
+    assert total_cr(page) == before - 4 + 3 + 3 + 1
+
+    drag_to(page, "MATH 331", "2-spring")
+    assert pos(page, "MATH 331") == "2-spring"
+    for c in ("ECE 213", "ECE 214"):
+        assert "err" in page.get_attribute(f'.node[data-id="{c}"]', "class")
+
+    page.click("#stProblems")
+    page.click('#side summary:has-text("Swaps")')
+    page.click('#side .row:has-text("MATH 235") button:has-text("Turn off")')
+    assert pos(page, "ECE 201") == "2-fall"
+    for c in ("MATH 235", "MATH 331", "ECE 296C"):
+        assert pos(page, c) is None
+    for c in ("ECE 213", "ECE 214"):
+        assert "err" not in page.get_attribute(f'.node[data-id="{c}"]', "class")
+    assert total_cr(page) == before

@@ -74,11 +74,57 @@ const C = id => S.P.courses[id] || (S.custom[id] && { code: id, kind: 'custom', 
 const tagOf = item => (item.split(':')[1] || '').trim();
 const eff = (id, p = plan()) => p.fills[id] || id;
 
+/* ───────────── substitutions ─────────────
+   {id, replaces:[codes], with:[codes], label, source}. ALL of `with` together stand in for each course in
+   `replaces`. A plan turns one on with plan.swaps[id]; plan.swapped[id] remembers what was moved so that
+   turning it off puts things back. */
+const SUBS = () => S.P.substitutions || [];
+const subById = id => SUBS().find(x => x.id === id);
+const activeSubs = (p = plan()) => SUBS().filter(x => (p.swaps || {})[x.id]);
+function swappedFor(code, p = plan()) { return activeSubs(p).find(x => x.replaces.includes(code)); }
+// The prerequisite graph as this plan sees it: an edge out of a replaced course is redrawn from every course
+// that stands in for it (so the dependent waits for the LATEST of them, and is unlocked when ALL are done);
+// edges into a replaced course go away, the stand-ins keep their own prerequisites.
+function effEdges(p = plan()) {
+  const rep = {}; activeSubs(p).forEach(x => x.replaces.forEach(r => rep[r] = rep[r] || x));
+  const out = [];
+  S.P.edges.forEach((e, oi) => {
+    if (rep[e.to]) return;
+    if (rep[e.from]) rep[e.from].with.forEach(w => { if (w !== e.to) out.push({ ...e, from: w, oi, via: e.from }); });
+    else out.push({ ...e, oi });
+  });
+  return out;
+}
+function setSwap(sub, on) {
+  const p = editable(); p.swaps = p.swaps || {}; p.swapped = p.swapped || {};
+  if (!!p.swaps[sub.id] === on) return;
+  if (on) {
+    const v = validate(p), rec = { gone: [], added: [] }; let key = null, slotFill = null;
+    for (const r of sub.replaces) {
+      const a = v.at[r]; if (!a) continue;
+      key = key || a.key;
+      if (a.id === r) { rec.gone.push({ code: r, key: a.key }); delete p.pos[r]; }
+      else { rec.gone.push({ code: r, slot: a.id }); p.fills[a.id] = slotFill = sub.with[0]; }   // the slot keeps one stand-in
+    }
+    if (key) sub.with.forEach(w => { if (w !== slotFill && !v.at[w]) { p.pos[w] = key; rec.added.push(w); } });
+    p.swaps[sub.id] = true; p.swapped[sub.id] = rec;
+    if (!key) toast(`${sub.replaces.join(', ')} is not in this plan. Add ${sub.with.join(', ')} where you want them.`);
+  } else {
+    const rec = p.swapped[sub.id] || { gone: [], added: [] };
+    rec.added.forEach(w => delete p.pos[w]);
+    rec.gone.forEach(g => { if (g.slot) { if (p.pos[g.slot]) p.fills[g.slot] = g.code; } else p.pos[g.code] = g.key; });
+    delete p.swaps[sub.id]; delete p.swapped[sub.id];
+  }
+  refresh();
+}
+const isSwapAdded = (id, p = plan()) => Object.values(p.swapped || {}).some(r => r.added.includes(id));
+const subLine = x => `${x.with.join(' + ')} for ${x.replaces.join(', ')}`;
+
 function officialPlan() {
   const pos = {}, order = {}; let n = 0;
   S.P.terms.forEach(t => t.items.forEach(id => { pos[id] = tkey(t.year, t.season); order[id] = n++; }));
   S.order = order;
-  return { name: 'Official plan', locked: true, pos, fills: {}, meets: {} };
+  return { name: 'Official plan', locked: true, pos, fills: {}, meets: {}, swaps: {}, swapped: {} };
 }
 
 async function setProgram(P) {
@@ -86,7 +132,7 @@ async function setProgram(P) {
   let saved = {};
   try { saved = await (await api('/api/state/' + P.id)).json(); } catch (e) {}
   S.custom = saved.custom || {};
-  S.plans = [officialPlan(), ...(saved.plans || []).map(p => ({ fills: {}, meets: {}, ...p, locked: false }))];
+  S.plans = [officialPlan(), ...(saved.plans || []).map(p => ({ fills: {}, meets: {}, swaps: {}, swapped: {}, ...p, locked: false }))];
   S.plans.slice(1).forEach(p => Object.keys(p.pos).forEach(id => { if (!P.courses[id] && !S.custom[id]) delete p.pos[id]; }));
   S.cur = Math.min(saved.cur || 0, S.plans.length - 1);
   S.extra = !!saved.extra; S.done = saved.done || {}; S.notes = saved.notes || {}; S.checks = saved.checks || {};
@@ -109,8 +155,8 @@ function validate(p = plan()) {
   for (const id in p.pos) at[eff(id, p)] = { id, key: p.pos[id], idx: tidx(p.pos[id]) };
   const issues = [], bad = new Set(), level = {}, load = {};
   for (const id in p.pos) load[p.pos[id]] = (load[p.pos[id]] || 0) + (C(eff(id, p)).credits || 0);
-  const into = {};
-  S.P.edges.forEach((e, i) => (into[e.to] = into[e.to] || []).push({ ...e, i }));
+  const into = {}, E = effEdges(p);
+  E.forEach((e, i) => (into[e.to] = into[e.to] || []).push({ ...e, i }));
   for (const code in at) {
     const t = at[code], ins = into[code] || [];
     const okEdge = e => { const s = at[e.from]; return s && (e.type.endsWith('coreq') ? s.idx <= t.idx : s.idx < t.idx); };
@@ -118,13 +164,14 @@ function validate(p = plan()) {
       const s = at[e.from], alt = e.type.startsWith('alt_'), co = e.type.endsWith('coreq');
       if (!s) {
         if (alt || C(e.from).kind === 'external') continue;
-        issues.push({ lv: 'info', id: t.id, msg: `${code} needs ${e.from}, which is not in this plan.` }); continue;
+        issues.push({ lv: 'info', id: t.id, msg: e.via ? `${code} needs ${e.from} (part of the swap for ${e.via}), which is not in this plan.`
+                                                       : `${code} needs ${e.from}, which is not in this plan.` }); continue;
       }
       if (okEdge(e) || (alt && ins.some(x => x !== e && okEdge(x)))) continue;
       bad.add(e.i); level[t.id] = 'err';
       issues.push({ lv: 'err', id: t.id, fix: { tid: t.id, need: co ? s.idx : s.idx + 1 },
         msg: co ? `${code} must be taken with or after ${e.from} (${tlabel(s.key)}), but it is in ${tlabel(t.key)}.`
-                : `${code} needs ${e.from} first. ${e.from} is in ${tlabel(s.key)}, ${code} is in ${tlabel(t.key)}.` });
+                : `${code} needs ${e.from} first${e.via ? ` (it stands in for ${e.via})` : ''}. ${e.from} is in ${tlabel(s.key)}, ${code} is in ${tlabel(t.key)}.` });
     }
     const c = C(code), season = t.key.split('-')[1];
     if (c.offered && !c.offered.includes(season))
@@ -139,7 +186,7 @@ function validate(p = plan()) {
   const lastKey = Object.values(p.pos).sort((a, b) => tidx(b) - tidx(a))[0] || '1-fall';
   let doneCr = 0;
   for (const id in p.pos) if (S.done[id]) doneCr += C(eff(id, p)).credits || 0;
-  return { issues, bad, level, load, at, total: Object.values(load).reduce((a, b) => a + b, 0), lastKey, doneCr };
+  return { E, issues, bad, level, load, at, total: Object.values(load).reduce((a, b) => a + b, 0), lastKey, doneCr };
 }
 
 // done / ready / locked for one card.  ready = every prerequisite that is in the plan is checked off
@@ -147,7 +194,7 @@ function status(id, v = V) {
   if (S.done[id]) return 'done';
   const code = eff(id);
   if (code === id && C(id).kind === 'slot') return 'open';      // an empty elective slot is not a course yet
-  for (const e of S.P.edges) {
+  for (const e of v.E) {
     if (e.to !== code || e.type !== 'prereq') continue;
     const s = v.at[e.from];
     if (s && !S.done[s.id]) return 'locked';
@@ -158,7 +205,7 @@ function chain(code, dir) {          // all ancestors ('up') or descendants ('do
   const out = new Set(), stack = [code];
   while (stack.length) {
     const c = stack.pop();
-    for (const e of S.P.edges) {
+    for (const e of (V && V.E) || S.P.edges) {
       const [a, b] = dir === 'up' ? [e.to, e.from] : [e.from, e.to];
       if (a === c && !out.has(b)) { out.add(b); stack.push(b); }
     }
@@ -193,7 +240,8 @@ function toggleTerm(key) {
 function editable() { if (plan().locked) fork(true); return plan(); }
 function fork(auto) {
   const src = plan(), n = S.plans.filter(p => !p.locked).length + 1;
-  S.plans.push({ name: 'My plan ' + n, locked: false, pos: { ...src.pos }, fills: { ...src.fills }, meets: { ...(src.meets || {}) } });
+  S.plans.push({ name: 'My plan ' + n, locked: false, pos: { ...src.pos }, fills: { ...src.fills }, meets: { ...(src.meets || {}) },
+    swaps: { ...(src.swaps || {}) }, swapped: JSON.parse(JSON.stringify(src.swapped || {})) });
   S.cur = S.plans.length - 1;
   if (auto) toast(`Official plan stays as printed. Your change is in "${plan().name}".`);
 }
@@ -270,7 +318,7 @@ function render() {
   }
   const hits = new Set(selCode ? [] : matches(S.q));
 
-  $('#edges').innerHTML = S.P.edges.map((e, i) => {
+  $('#edges').innerHTML = V.E.map((e, i) => {
     const a = V.at[e.from], b = V.at[e.to];
     if (!a || !b) return '';
     const A = L.at[a.id], B = L.at[b.id]; let d;
@@ -306,7 +354,7 @@ function nodeSVG(id, pt, hl, hits) {
   const title = slot && !filled ? ['elective · choose a course', c.tag || ''] : wrap(c.title || '');
   const slotName = (c.title || '').replace(/\s*electives?$/i, '') || 'Elective';
   const moved = S.plans[0].pos[id] && S.plans[0].pos[id] !== p.pos[id];
-  const tag = [filled ? 'elective' : '', moved ? 'moved' : '', S.notes[code] ? 'note' : ''].filter(Boolean).join(' · ');
+  const tag = [filled ? 'elective' : '', isSwapAdded(id, p) ? 'swap' : '', moved ? 'moved' : '', S.notes[code] ? 'note' : ''].filter(Boolean).join(' · ');
   return `<g class="${cl.join(' ')}" data-id="${esc(id)}" transform="translate(${pt.x},${pt.y})"><g class="in">
     <rect class="card" width="${NW}" height="${NH}" rx="4"/><rect class="stripe" width="3" height="${NH}"/>
     <g class="cb"><rect x="11" y="9" width="14" height="14" rx="2"/><path d="M14 16.2l2.8 2.8 5.2-6.2"/></g>
@@ -363,7 +411,7 @@ const termOptions = cur => L.cols.map(k => `<option value="${k}" ${k === cur ? '
 function courseRow(code, right, extra) {
   return `<div class="row" data-act="go" data-id="${esc(code)}"><span class="c">${esc(code)}</span><span class="t">${esc(C(code).title)}</span><span class="s">${right || ''}</span>${extra || ''}</div>`;
 }
-const where = code => V.at[code] ? (S.done[V.at[code].id] ? '<span class="ok">✓ done</span>' : tlabel(V.at[code].key)) : 'not in plan';
+const where = code => swappedFor(code) && !V.at[code] ? '<span class="muted">swapped</span>' : V.at[code] ? (S.done[V.at[code].id] ? '<span class="ok">✓ done</span>' : tlabel(V.at[code].key)) : 'not in plan';
 
 function dCourse() {
   const p = plan();
@@ -397,7 +445,7 @@ function dCourse() {
   }
 
   const pre = S.P.edges.map((e, i) => ({ ...e, i })).filter(e => e.to === code);
-  const unl = S.P.edges.filter(e => e.from === code), allDown = chain(code, 'down');
+  const unl = V.E.filter(e => e.from === code), allDown = chain(code, 'down');
   const st = nid ? status(nid) : null;
   let h = `<h2>${esc(code)}</h2><div class="sub">${esc(c.title)}</div>
     <div class="meta">${c.credits} cr${placed ? ' · ' + tlabel(placed) : ' · not in this plan'}${c.offered ? ' · ' + c.offered.map(s => SNAME[s]).join('/') + ' only' : ''}${st ? ` · <span class="${{ done: 'ok', ready: 'bl' }[st] || ''}">${st}</span>` : ''}</div>`;
@@ -412,6 +460,12 @@ function dCourse() {
   if (slotReq && slotReq.items.length) h += sec('Counts toward', slotReq.items.map((it, i) => meetBox(slotReq.id + ':' + i, it, (p.meets[nid] || []).includes(slotReq.id + ':' + i), nid)).join(''), true);
   h += sec('My notes', noteBox(code), true);
   h += sec('Move', moveBox);
+  const mine = SUBS().filter(x => x.replaces.includes(code)), standsIn = activeSubs(p).filter(x => x.with.includes(code));
+  h += sec(`Swap this course${mine.length ? ' · ' + mine.length : ''}`, standsIn.map(x => `<div class="note">Part of the swap for ${esc(x.replaces.join(', '))}.</div>`).join('') +
+    mine.map(swapRow).join('') +
+    `<div class="muted" style="font-size:12px;margin-top:8px">Define a swap for ${esc(code)} (saved to the program, for everyone):</div>
+    <div class="inl"><input id="swWith" placeholder="Courses, e.g. MATH 235, MATH 331"></div>
+    <div class="inl" style="margin-top:6px"><input id="swLabel" placeholder="Label, e.g. Math minor path"><button data-act="addsub" data-id="${esc(code)}">Add</button></div>`);
   const info = V.issues.filter(i => i.id === nid && i.lv === 'info').map(i => `<div class="issue info">${esc(i.msg)}</div>`).join('');
   const pdf = [...(c.note_text || []), ...((nid && nid !== code && C(nid).note_text) || [])].map(n => `<div class="note">${esc(n)}</div>`).join('');
   h += sec('From the PDF', info + pdf);
@@ -420,6 +474,9 @@ function dCourse() {
   return h;
 }
 
+const swapRow = x => { const on = !!(plan().swaps || {})[x.id];
+  return `<div class="row" style="cursor:default"><span class="t" style="white-space:normal"><b class="mono" style="font-size:12px">${esc(subLine(x))}</b><br>${esc(x.label || '')}</span>
+    <button class="${on ? '' : 'go'}" data-act="swap" data-sub="${esc(x.id)}" data-on="${on ? 0 : 1}">${on ? 'Turn off' : 'Turn on'}</button></div>`; };
 const noteBox = key => `<textarea id="note" data-code="${esc(key)}" placeholder="Professor, section, what to review, who to ask…">${esc(S.notes[key] || '')}</textarea>`;
 const meetBox = (key, label, on, slot) => `<label class="chk"><input type="checkbox" name="meet" value="${esc(key)}" ${slot ? `data-meet="${esc(slot)}"` : ''} ${on ? 'checked' : ''}><span>${esc(label)}</span></label>`;
 function fillForm(slot, slotC, req) {            // "What are you taking?" - any course, even one the PDF never listed
@@ -468,8 +525,7 @@ function dPlan() {
   for (const r of S.P.requirements) h += sec(r.label, r.items.map((it, i) => { const k = r.id + ':' + i;
     return via[k] ? `<label class="chk"><input type="checkbox" checked disabled><span>${esc(it)} <span class="muted">· ${esc(via[k].join(', '))}</span></span></label>` : chk(k, it); }).join('') + `<div class="note">${esc(r.text)}</div>`);
   if ((S.P.rules || []).length) h += sec('Rules found by AI', S.P.rules.map((r, i) => chk('rule:' + i, r)).join(''));
-  const alts = Object.values(S.P.courses).filter(c => c.kind === 'alternate');
-  h += sec('Substitution courses', alts.map(c => courseRow(c.code, where(c.code))).join(''));
+  h += sec(`Swaps · ${activeSubs(p).length}/${SUBS().length}`, SUBS().map(swapRow).join('') || '<div class="muted">None in this program. Open a course to define one.</div>');
   h += sec('Heads-up · ' + infos.length, infos.map(i => `<div class="issue info" data-act="go" data-id="${esc(i.id || '')}">${esc(i.msg)}</div>`).join(''));
   h += sec('Program', `<pre class="log">${esc((S.P.log || []).join('\n'))}</pre>
     ${S.ai && S.ai.msg ? `<div class="note">${esc(S.ai.msg)}</div>` : ''}
@@ -509,7 +565,16 @@ $('#side').addEventListener('click', async e => {
   else if (a === 'remove') { const q = editable(); delete q.pos[id]; delete q.fills[id]; delete S.done[id]; S.sel = null; S.drawer = null; refresh(); }
   else if (a === 'addplan') { const k = $('#addTerm').value; editable().pos[id] = k; S.sel = id; refresh(); focusOn(id); }
   else if (a === 'autofix') autoFix();
-  else if (a === 'reset') { p.pos = { ...S.plans[0].pos }; p.fills = {}; p.meets = {}; refresh(); }
+  else if (a === 'swap') setSwap(subById(el.dataset.sub), el.dataset.on === '1');
+  else if (a === 'addsub') {
+    const w = $('#swWith').value.split(',').map(x => x.trim()).filter(Boolean), codes = w.map(normCode);
+    if (!codes.length || codes.includes(null)) return toast('List course codes separated by commas, e.g. MATH 235, MATH 331.');
+    if (codes.includes(id)) return toast(`${id} cannot stand in for itself.`);
+    const sub = { id: 'sub-u' + Date.now().toString(36), replaces: [id], with: [...new Set(codes)], label: $('#swLabel').value.trim(), source: 'user' };
+    sub.with.forEach(c => { if (!S.P.courses[c]) S.P.courses[c] = { code: c, title: (S.custom[c] || {}).title || '', credits: (S.custom[c] || {}).credits || 3, kind: 'alternate', note_text: [] }; });
+    S.P.substitutions = [...SUBS(), sub]; await saveProgram(); refresh(false); toast('Swap saved to the program. Turn it on to try it.');
+  }
+  else if (a === 'reset') { p.pos = { ...S.plans[0].pos }; p.fills = {}; p.meets = {}; p.swaps = {}; p.swapped = {}; refresh(); }
   else if (a === 'rename') { const n = prompt('Plan name', p.name); if (n) { p.name = n; refresh(); } }
   else if (a === 'delplan') { S.plans.splice(S.cur, 1); S.cur = 0; refresh(); }
   else if (a === 'deledge') { e.stopPropagation(); S.P.edges.splice(+el.dataset.i, 1); await saveProgram(); refresh(false); }

@@ -26,3 +26,17 @@ def test_edges(compe):
 
 def test_pools(compe):
     assert {"note5", "note6"} <= set(compe["pools"])
+
+
+def test_substitutions(compe):
+    subs = {tuple(s["replaces"]): s for s in compe["substitutions"]}
+    math = subs[("ECE 201",)]
+    assert math["with"] == ["MATH 235", "MATH 331", "ECE 296C"] and math["source"] == "pdf" and math["id"]
+    assert subs[("ECE 341",)]["with"] == ["COMPSCI 311"]
+    assert len(compe["substitutions"]) == 2                     # nothing guessed from vaguer sentences
+
+
+def test_note_substitution_phrasing():
+    assert extract.note_substitutions("Students must complete ECE 213 or ECE 214 first.") == []
+    s = extract.note_substitutions("Students may substitute MATH 235, Linear Algebra, and MATH 331 for ECE 201. Other text.")
+    assert s[0]["replaces"] == ["ECE 201"] and s[0]["with"] == ["MATH 235", "MATH 331"]

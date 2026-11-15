@@ -100,8 +100,8 @@ def parse_grid(page):
         if ci is not None:
             cols[ci]["lines"].append(l)
 
-    terms, courses, honors, extra = [], {}, [], []
-    slot_n = 0
+    terms, courses, honors, extra, subs = [], {}, [], [], []
+    slot_n, sub = 0, None  # sub = an open "Substitute ... for CODE" block collecting its numbered alternates
     for c in cols:
         ls = sorted(c["lines"], key=lambda l: (l["y0"], l["x0"]))
         cells, cur = [], []
@@ -120,6 +120,11 @@ def parse_grid(page):
             if "honors" in text.lower() and len(text) > 60:
                 honors.append(clean(text)); continue
             cm = CRED_RE.search(text)
+            sm = re.search(r"substitut\w*\b.*?\bfor\s+([A-Z][A-Z&\-]{1,9}\s?H?\d{3}[A-Z]{0,3})", text, re.I)
+            if sm and not cm:
+                sub = {"replaces": [find_code(sm.group(1))[0]], "with": [],
+                       "label": clean(re.sub(r"[:(].*$", "", text)), "source": "pdf"}
+                subs.append(sub); continue
             if not cm or "not used for" in text.lower():
                 continue
             lo = int(cm.group(1)); hi = int(cm.group(2) or lo)
@@ -139,6 +144,10 @@ def parse_grid(page):
                 if alt:
                     rec["kind"] = "alternate"
                     extra.append(rec)
+                    # "* A", "2. B", "3. C" under a substitute header: keep them only while the numbering runs on
+                    num = re.match(r"^(\*|\d+)", first).group(1)
+                    if sub is not None and (1 if num == "*" else int(num)) == len(sub["with"]) + 1:
+                        sub["with"].append(code)
                 elif code not in courses:
                     courses[code] = rec; items.append(code)
             elif not alt:
@@ -153,7 +162,8 @@ def parse_grid(page):
         terms.append({"year": c["year"], "season": c["season"], "target": c["target"], "items": items})
     if sum(len(t["items"]) for t in terms) < 3:
         return None
-    return {"terms": terms, "courses": courses, "honors": honors, "alternates": extra}
+    return {"terms": terms, "courses": courses, "honors": honors, "alternates": extra,
+            "substitutions": [x for x in subs if x["with"]]}
 
 
 # ───────────────────────── 2. flowchart parser ─────────────────────────
@@ -300,6 +310,46 @@ def parse_notes(page):
     return notes
 
 
+CODE_ONLY = r"[A-Z][A-Z&\-]{1,9}\s?H?\d{3}[A-Z]{0,3}"
+
+
+def note_substitutions(text):
+    """Only two phrasings are trusted; anything vaguer is left out rather than guessed.
+      'Students may substitute A, Title, and B, Title, for C.'  -> A + B stand in for C
+      'You may use either A or B ...'                            -> B stands in for A"""
+    out = []
+    for sent in re.split(r"(?<=[.!?])\s+(?=[A-Z†‡*])", text):
+        m = re.search(r"\bsubstitute\s+(.+?)\s+for\s+(" + CODE_ONLY + r")\b", sent, re.I)
+        if m:
+            w = [norm_code(*c.groups()) for c in CODE_RE.finditer(m.group(1))]
+            r = find_code(m.group(2))[0]
+            if w and r not in w:
+                out.append({"replaces": [r], "with": list(dict.fromkeys(w)), "label": clean(sent)[:140], "source": "pdf"})
+            continue
+        m = re.search(r"\b(?:may|can)\s+(?:use|take)\s+either\s+(" + CODE_ONLY + r")\s+or\s+(" + CODE_ONLY + r")\b", sent)
+        if m:
+            a, b = find_code(m.group(1))[0], find_code(m.group(2))[0]
+            if a != b:
+                out.append({"replaces": [a], "with": [b], "label": clean(sent)[:140], "source": "pdf"})
+    return out
+
+
+def merge_substitutions(subs):
+    """De-dup by what is replaced; when one list of courses contains another, keep the fuller one."""
+    keep = []
+    for s in subs:
+        for k in keep:
+            if set(k["replaces"]) == set(s["replaces"]) and (set(s["with"]) <= set(k["with"]) or set(k["with"]) <= set(s["with"])):
+                if len(s["with"]) > len(k["with"]):
+                    k.update(s)
+                break
+        else:
+            keep.append(dict(s))
+    for s in keep:
+        s["id"] = "sub-" + hashlib.sha1(("|".join(s["replaces"]) + ">" + "|".join(s["with"])).encode()).hexdigest()[:8]
+    return keep
+
+
 def parse_prereq_text(page):
     """Catalog-style text: 'ECE 241 ... Prerequisite(s): ECE 122 and MATH 132.'"""
     text = page.get_text()
@@ -325,7 +375,7 @@ def parse_prereq_text(page):
 
 # ───────────────────────── merge everything ─────────────────────────
 def extract_pdfs(paths, name=None):
-    courses, edges, plans, notes, honors, alternates = {}, [], [], [], [], []
+    courses, edges, plans, notes, honors, alternates, subs = {}, [], [], [], [], [], []
     flow_seen, title_guess, log = False, None, []
     for path in paths:
         doc = pymupdf.open(path)
@@ -341,7 +391,7 @@ def extract_pdfs(paths, name=None):
                     plans.append(g["terms"])
                     for k, v in g["courses"].items():
                         courses.setdefault(k, {}).update({a: b for a, b in v.items() if b not in (None, "")})
-                    honors += g["honors"]; alternates += g["alternates"]
+                    honors += g["honors"]; alternates += g["alternates"]; subs += g["substitutions"]
                 continue
             f = parse_flow(page)
             if f:
@@ -373,10 +423,10 @@ def extract_pdfs(paths, name=None):
                         if m.group(3):
                             c["credits"] = int(m.group(3))
     return assemble(courses, edges, plans[0] if plans else None, notes, honors, alternates,
-                    name or title_guess or "My Program", log)
+                    name or title_guess or "My Program", log, subs)
 
 
-def assemble(courses, edges, terms, notes, honors, alternates, name, log):
+def assemble(courses, edges, terms, notes, honors, alternates, name, log, subs=()):
     # de-dup notes by number
     nd = {}
     for n in notes:
@@ -419,6 +469,14 @@ def assemble(courses, edges, terms, notes, honors, alternates, name, log):
         c = courses.setdefault(a["code"], a)
         c.setdefault("kind", "alternate"); c.setdefault("title", a["title"]); c["credits"] = c.get("credits") or a["credits"]
 
+    subs = merge_substitutions(list(subs) + [x for n in nd.values() for x in note_substitutions(n["text"])])
+    for sb in subs:
+        cr = sum(courses.get(r, {}).get("credits") or 0 for r in sb["replaces"]) or 3
+        for code in sb["replaces"] + sb["with"]:
+            courses.setdefault(code, {"code": code, "kind": "alternate", "title": "", "credits": cr})
+    if subs:
+        log.append(f"{len(subs)} substitution{'s' if len(subs) > 1 else ''} found")
+
     # edges: dedupe, keep only known endpoints
     seen, E = set(), []
     for e in edges:
@@ -444,7 +502,7 @@ def assemble(courses, edges, terms, notes, honors, alternates, name, log):
         c["note_text"] = [f"Note {r} · {nd[r]['title']}: {nd[r]['text'][:420]}" for r in c.pop("note_refs", []) if r in nd]
     pid = hashlib.sha1((name + "".join(sorted(courses))).encode()).hexdigest()[:10]
     return {"id": pid, "name": name, "courses": courses, "edges": E, "terms": terms,
-            "pools": pools, "requirements": requirements,
+            "pools": pools, "requirements": requirements, "substitutions": subs,
             "honors": list(dict.fromkeys(honors)),
             "notes": [{"n": n["n"], "title": n["title"], "text": n["text"]} for n in sorted(nd.values(), key=lambda n: n["n"])],
             "log": log}
@@ -524,4 +582,5 @@ if __name__ == "__main__":
     print("POOLS", {k: (v["label"], v["choose"], len(v["options"])) for k, v in p["pools"].items()})
     print("REQS", json.dumps(p["requirements"])[:700])
     print("HONORS", p["honors"])
+    print("SUBS", [(x["replaces"], x["with"], x["label"]) for x in p["substitutions"]])
     print("ALT/ext", [(c["code"], c["kind"]) for c in p["courses"].values() if c["kind"] in ("alternate", "external")])
