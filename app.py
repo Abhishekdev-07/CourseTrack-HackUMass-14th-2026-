@@ -98,14 +98,16 @@ def signup():
     d = request.get_json(silent=True) or {}
     name, pw = (d.get("username") or "").strip(), d.get("password") or ""
     if not re.fullmatch(r"[A-Za-z0-9_.\-]{3,24}", name):
-        return jsonify(error="Username: 3-24 letters, numbers, dot, dash or underscore."), 400
+        return jsonify(error="Username: 3-24 letters, numbers, dot, dash or underscore.", field="username"), 400
     if len(pw) < 8:
-        return jsonify(error="Password needs at least 8 characters."), 400
+        return jsonify(error="Password needs at least 8 characters.", field="password"), 400
     try:
         cur = db().execute("INSERT INTO users(username, pw) VALUES(?,?)", (name, generate_password_hash(pw)))
         db().commit()
     except sqlite3.IntegrityError:
-        return jsonify(error="That username is taken."), 409
+        return jsonify(error="That username is taken.", field="username"), 409
+    if d.get("login", True) is False:          # the web client asks the user to log in explicitly
+        return jsonify(created=True, username=name)
     start_session(cur.lastrowid)
     return jsonify(me_json(current_user()))
 
@@ -115,7 +117,7 @@ def login():
     d = request.get_json(silent=True) or {}
     u = db().execute("SELECT * FROM users WHERE username=? AND guest=0", ((d.get("username") or "").strip(),)).fetchone()
     if not u or not check_password_hash(u["pw"], d.get("password") or ""):
-        return jsonify(error="Wrong username or password."), 401
+        return jsonify(error="Wrong username or password.", field="password"), 401
     start_session(u["id"])
     return jsonify(me_json(u))
 

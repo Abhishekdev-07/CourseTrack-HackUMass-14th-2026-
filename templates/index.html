@@ -11,16 +11,39 @@
 
 <!-- signed-out screen -->
 <section id="auth" hidden>
-  <form id="authForm" autocomplete="on">
+  <div id="authBox">
     <div class="brand big"><i class="r"></i><i class="g"></i><i class="b"></i><span>CourseTrack</span></div>
     <p class="tag">Your degree as a map. Check off what you've done, see what it unlocks.</p>
-    <input id="auUser" name="username" placeholder="username" autocomplete="username" required>
-    <input id="auPass" name="password" type="password" placeholder="password" autocomplete="current-password" required>
-    <button class="primary" id="auLogin" type="submit">Log in</button>
-    <button id="auSignup" type="button">Create account</button>
+    <div id="authTabs" role="tablist">
+      <button type="button" role="tab" data-tab="login" class="on" aria-selected="true">Log in</button>
+      <button type="button" role="tab" data-tab="signup" aria-selected="false">Create account</button>
+    </div>
+
+    <form id="loginForm" novalidate>
+      <div id="liOk" hidden></div>
+      <input id="liUser" name="username" placeholder="username" autocomplete="username" autocapitalize="none" spellcheck="false">
+      <div class="err" id="liUser-err"></div>
+      <input id="liPass" name="password" type="password" placeholder="password" autocomplete="current-password">
+      <div class="err" id="liPass-err"></div>
+      <button class="primary" type="submit">Log in</button>
+      <p class="switch">No account yet? <button type="button" class="link" data-tab="signup">Create one</button></p>
+    </form>
+
+    <form id="signupForm" novalidate hidden>
+      <input id="suUser" name="username" placeholder="username" autocomplete="username" autocapitalize="none" spellcheck="false" aria-describedby="suUser-help">
+      <div class="help" id="suUser-help">3-24 characters: letters, numbers, . - _</div>
+      <div class="err" id="suUser-err"></div>
+      <input id="suPass" name="password" type="password" placeholder="password" autocomplete="new-password" aria-describedby="suPass-help">
+      <div class="help" id="suPass-help">At least 8 characters.</div>
+      <div class="err" id="suPass-err"></div>
+      <input id="suPass2" name="confirm" type="password" placeholder="confirm password" autocomplete="new-password">
+      <div class="err" id="suPass2-err"></div>
+      <button class="primary" type="submit">Create account</button>
+    </form>
+
     <button class="link" id="auGuest" type="button">Just looking? Continue as guest</button>
-    <div id="auMsg"></div>
-  </form>
+    <div class="err" id="auMsg"></div>
+  </div>
 </section>
 
 <div id="app" hidden>

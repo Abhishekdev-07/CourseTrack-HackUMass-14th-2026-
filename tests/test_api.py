@@ -50,3 +50,19 @@ def test_guest_cannot_delete_program(client):
     client.post("/api/guest")
     assert client.delete(f"/api/program/{pid}").status_code == 403
     assert client.get(f"/api/program/{pid}").status_code == 200
+
+
+def test_signup_without_login_creates_no_session(client):
+    name = uname()
+    r = client.post("/api/signup", json={"username": name, "password": "correct-horse", "login": False})
+    assert r.status_code == 200 and r.get_json() == {"created": True, "username": name}
+    assert client.get("/api/me").status_code == 401
+    assert client.post("/api/login", json={"username": name, "password": "correct-horse"}).status_code == 200
+
+
+def test_signup_errors_name_the_field(client):
+    assert signup(client, "ab").get_json()["field"] == "username"
+    assert signup(client, uname(), "short").get_json()["field"] == "password"
+    name = uname(); signup(client, name); client.post("/api/logout")
+    r = signup(client, name)
+    assert r.status_code == 409 and r.get_json()["field"] == "username"

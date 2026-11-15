@@ -42,16 +42,75 @@ async function flush() {
 const saveProgram = () => api('/api/program/' + S.P.id, { method: 'PUT', json: S.P });
 
 /* ───────────── accounts ───────────── */
-function showAuth() { $('#app').hidden = true; $('#auth').hidden = false; $('#auMsg').textContent = ''; }
-async function auth(path, body) {
-  const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
-  const d = await r.json();
-  if (!r.ok) return $('#auMsg').textContent = d.error || 'Something went wrong.';
-  $('#auPass').value = ''; enter(d);
+const USER_RE = /^[A-Za-z0-9_.\-]{3,24}$/;
+function showAuth(tab = 'login') { $('#app').hidden = true; $('#auth').hidden = false; authTab(tab); }
+function authTab(tab, keepOk) {
+  const login = tab === 'login';
+  $('#loginForm').hidden = !login; $('#signupForm').hidden = login;
+  document.querySelectorAll('#authTabs [data-tab]').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.setAttribute('aria-selected', b.dataset.tab === tab); });
+  document.querySelectorAll('#auth .err').forEach(e => e.textContent = '');
+  document.querySelectorAll('#auth input.bad').forEach(i => { i.classList.remove('bad'); i.removeAttribute('aria-invalid'); });
+  if (!keepOk) $('#liOk').hidden = true;
+  const f = login ? ($('#liUser').value ? $('#liPass') : $('#liUser')) : $('#suUser');
+  f.focus();
 }
-$('#authForm').addEventListener('submit', e => { e.preventDefault(); auth('/api/login', { username: $('#auUser').value, password: $('#auPass').value }); });
-$('#auSignup').addEventListener('click', () => auth('/api/signup', { username: $('#auUser').value, password: $('#auPass').value }));
-$('#auGuest').addEventListener('click', () => auth('/api/guest'));
+function fieldErr(id, msg) {                 // error text sits right under the field it is about
+  const i = $('#' + id); $('#' + id + '-err').textContent = msg;
+  i.classList.add('bad'); i.setAttribute('aria-invalid', 'true');
+  return true;
+}
+async function post(path, body) {           // never throws: network errors and non-JSON replies become a message
+  try {
+    const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
+    let d = {}; try { d = await r.json(); } catch (e) {}
+    if (!r.ok && !d.error) d.error = `Something went wrong (${r.status}). Try again.`;
+    return { ok: r.ok, status: r.status, d };
+  } catch (e) { return { ok: false, status: 0, d: { error: 'Could not reach the server. Check your connection and try again.' } }; }
+}
+async function busy(form, fn) { const b = form.querySelector('[type=submit]'); if (b.disabled) return; b.disabled = true; try { await fn(); } finally { b.disabled = false; } }
+document.querySelectorAll('#auth [data-tab]').forEach(b => b.addEventListener('click', () => authTab(b.dataset.tab)));
+$('#auth').addEventListener('input', e => {        // an error goes away as soon as you start fixing it
+  if (!e.target.id) return;
+  const err = $('#' + e.target.id + '-err'); if (err) err.textContent = '';
+  e.target.classList.remove('bad'); e.target.removeAttribute('aria-invalid');
+  if (e.target.id === 'suPass' && $('#suPass2-err').textContent) { $('#suPass2-err').textContent = ''; $('#suPass2').classList.remove('bad'); }
+  $('#auMsg').textContent = '';
+});
+$('#loginForm').addEventListener('submit', e => {
+  e.preventDefault();
+  busy(e.target, async () => {
+    const u = $('#liUser').value.trim(), pw = $('#liPass').value;
+    let bad = false;
+    if (!u) bad = fieldErr('liUser', 'Enter your username.');
+    if (!pw) bad = fieldErr('liPass', 'Enter your password.');
+    if (bad) return (u ? $('#liPass') : $('#liUser')).focus();
+    const r = await post('/api/login', { username: u, password: pw });
+    if (!r.ok) { fieldErr(r.d.field === 'username' ? 'liUser' : 'liPass', r.d.error); return $('#liPass').select(); }
+    $('#liPass').value = ''; $('#liOk').hidden = true; enter(r.d);
+  });
+});
+$('#signupForm').addEventListener('submit', e => {
+  e.preventDefault();
+  busy(e.target, async () => {
+    const u = $('#suUser').value.trim(), pw = $('#suPass').value, pw2 = $('#suPass2').value;
+    const errs = [];
+    if (!USER_RE.test(u)) errs.push(['suUser', u ? 'Use 3-24 letters, numbers, dot, dash or underscore.' : 'Choose a username.']);
+    if (pw.length < 8) errs.push(['suPass', pw ? `Too short: ${pw.length} of 8 characters.` : 'Choose a password.']);
+    else if (pw2 !== pw) errs.push(['suPass2', 'Passwords do not match.']);
+    if (errs.length) { errs.forEach(x => fieldErr(...x)); return $('#' + errs[0][0]).focus(); }
+    const r = await post('/api/signup', { username: u, password: pw, login: false });
+    if (!r.ok) { const id = r.d.field === 'password' ? 'suPass' : 'suUser'; fieldErr(id, r.d.error); return $('#' + id).focus(); }
+    e.target.reset();
+    $('#liUser').value = r.d.username || u; $('#liPass').value = '';
+    $('#liOk').textContent = 'Account created. Log in to continue.'; $('#liOk').hidden = false;
+    authTab('login', true);
+  });
+});
+$('#auGuest').addEventListener('click', async () => {
+  const r = await post('/api/guest');
+  if (!r.ok) return $('#auMsg').textContent = r.d.error;
+  enter(r.d);
+});
 $('#btnUser').addEventListener('click', async () => {
   if (!confirm(S.user.guest ? 'Leave guest mode? Guest progress cannot be recovered.' : 'Log out?')) return;
   await flush(); await fetch('/api/logout', { method: 'POST' }); S.P = null; showAuth();

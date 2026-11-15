@@ -36,11 +36,23 @@ i.r{background:var(--red)}i.g{background:var(--green)}i.b{background:var(--blue)
 
 /* signed out */
 #auth{height:100%;display:grid;place-items:center}
-#authForm{width:300px;display:flex;flex-direction:column;gap:8px}
-#authForm .tag{color:var(--muted);margin:6px 0 14px;line-height:1.5}
-#authForm input{padding:9px 10px;font-family:var(--mono)}
-#authForm button{padding:8px}
-#auMsg{color:var(--red);min-height:18px;font-size:12.5px}
+#authBox{width:300px;display:flex;flex-direction:column}
+#authBox .tag{color:var(--muted);margin:6px 0 14px;line-height:1.5}
+#authTabs{display:flex;border-bottom:1px solid var(--line);margin-bottom:12px}
+#authTabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;border-radius:0;margin-bottom:-1px;padding:8px;color:var(--muted)}
+#authTabs button:hover{color:var(--text)}
+#authTabs button.on{color:var(--text);border-bottom-color:var(--text)}
+#auth form{display:flex;flex-direction:column;gap:6px}
+#auth form input{padding:9px 10px;font-family:var(--mono)}
+#auth form input.bad{border-color:var(--red)}
+#auth form button.primary{padding:8px;margin-top:4px}
+#auth .help{font-size:11.5px;color:var(--dim);margin-top:-2px}
+#auth .err{color:var(--red);font-size:12px;margin-top:-2px}
+#auth .err:empty{display:none}
+#liOk{color:var(--green);font-size:12.5px;margin-bottom:4px}
+#auth .switch{color:var(--muted);font-size:12.5px;margin:6px 0 0}
+#auth .switch button.link{padding:0;color:var(--text);text-decoration:underline}
+#auGuest{margin-top:14px;align-self:flex-start;padding-left:0}
 
 /* shell */
 #app{height:100%;display:flex;flex-direction:column}

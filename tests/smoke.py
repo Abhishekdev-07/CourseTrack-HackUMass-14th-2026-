@@ -41,10 +41,16 @@ def page(base_url):
 
 
 def signup(page, name, pw="password123"):
-    """Create an account and end up signed in, looking at the map."""
-    page.fill("#auUser", name)
-    page.fill("#auPass", pw)
-    page.click("#auSignup")
+    """Create an account on its tab, then log in on the other one (signup does not log you in)."""
+    page.click('#authTabs [data-tab="signup"]')
+    page.fill("#suUser", name)
+    page.fill("#suPass", pw)
+    page.fill("#suPass2", pw)
+    page.press("#suPass2", "Enter")                                # Enter submits the form you are in
+    page.wait_for_selector("#liOk:text('Account created. Log in to continue.')")
+    assert page.input_value("#liUser") == name
+    page.fill("#liPass", pw)
+    page.press("#liPass", "Enter")
     page.wait_for_selector("#app:not([hidden])")
     page.wait_for_selector(".node")
 
@@ -163,3 +169,30 @@ def test_swap_ece201_for_math_path(page):
     for c in ("ECE 213", "ECE 214"):
         assert "err" not in page.get_attribute(f'.node[data-id="{c}"]', "class")
     assert total_cr(page) == before
+
+
+def test_auth_errors_sit_by_their_field_and_clear(page):
+    logout(page)
+    page.click('#authTabs [data-tab="signup"]')
+    page.fill("#suUser", "x"); page.fill("#suPass", "short"); page.press("#suPass", "Enter")
+    assert "3-24" in page.text_content("#suUser-err") and "8" in page.text_content("#suPass-err")
+    page.fill("#suUser", "abc")                                    # clears on input
+    assert page.text_content("#suUser-err") == ""
+    page.fill("#suPass", "password123"); page.fill("#suPass2", "password999"); page.click("#signupForm button[type=submit]")
+    assert page.text_content("#suPass2-err") == "Passwords do not match."
+
+    taken = "t" + uuid.uuid4().hex[:8]
+    signup(page, taken); logout(page)
+    page.click('#authTabs [data-tab="signup"]')
+    page.fill("#suUser", taken); page.fill("#suPass", "password123"); page.fill("#suPass2", "password123")
+    page.press("#suUser", "Enter")
+    page.wait_for_selector("#suUser-err:text('That username is taken.')")
+    assert page.is_visible("#signupForm")                          # Enter did not try to log in
+
+    page.click('#authTabs [data-tab="login"]')
+    page.fill("#liUser", taken); page.fill("#liPass", "wrong-password"); page.press("#liUser", "Enter")
+    page.wait_for_selector("#liPass-err:text('Wrong username or password.')")
+    page.fill("#liPass", "password123")
+    assert page.text_content("#liPass-err") == ""
+    page.press("#liPass", "Enter")
+    page.wait_for_selector("#app:not([hidden])")
