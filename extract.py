@@ -28,6 +28,8 @@ def program_name(t):
     m = re.search(r"\bfor\s+(?:the\s+)?(.+?)\s+class(?:es)?\s+of\s+(\d{4})(?:\s*(?:through|to|-|–)\s*(\d{4}))?", t, re.I)
     if m:
         return f"{m.group(1)} ({m.group(2)}–{m.group(3)})" if m.group(3) else f"{m.group(1)} ({m.group(2)})"
+    t = re.sub(r"\s*[-–—:]\s*(?:(?:four|4)[- ]year\s+plan|(?:sample\s+)?plan\s+of\s+study)\s*$", "", t, flags=re.I)
+    t = re.sub(r"^(?:sample\s+)?plan\s+of\s+study\s*[:\-–—]\s*", "", t, flags=re.I)
     t2 = re.sub(r"^(?:\d{4}[-–]\d{2,4}\s+)?(?:curriculum|degree|program|prerequisite)?\s*(?:worksheet|flowchart|requirements|map|plan)\s+(?:for\s+(?:the\s+)?)?", "", t, flags=re.I).strip()
     return t2 if len(t2) >= 6 else t
 
@@ -67,6 +69,11 @@ def parse_grid(page):
         if m and (m.group(2) is not None or len(l["t"]) < 14):
             heads.append((l, m))
     if len(heads) < 2:
+        return None
+    # a semester GRID has its term headers side by side on one row; stacked headings are a table layout
+    top = min(h[0]["y0"] for h in heads)
+    heads = [h for h in heads if h[0]["y0"] - top < 25]
+    if len(heads) < 2 or max(h[0]["x0"] for h in heads) - min(h[0]["x0"] for h in heads) < 60:
         return None
     heads.sort(key=lambda h: h[0]["x0"])
     hy = max(h[0]["y1"] for h in heads)
@@ -174,6 +181,186 @@ def parse_grid(page):
         return None
     return {"terms": terms, "courses": courses, "honors": honors, "alternates": extra,
             "substitutions": [x for x in subs if x["with"]]}
+
+
+# ───────────────────────── 1b. table parser ─────────────────────────
+# Plans of study printed as tables: "Fall Semester" headings (stacked or side by side), then rows of
+# Course | Title | Credits | Prerequisites. Column roles come from a header row when there is one,
+# otherwise from what each cell looks like.
+YEARWORDS = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5,
+             "freshman": 1, "sophomore": 2, "junior": 3, "senior": 4}
+TERMHEAD_RE = re.compile(
+    r"^(?:(?:year\s*(?P<y1>\d)|(?P<w1>first|second|third|fourth|fifth|freshman|sophomore|junior|senior)(?:\s+year)?)\s*[,:\-–—]?\s*)?"
+    r"(?P<season>fall|autumn|spring|summer|winter)(?:\s+(?:semester|term|quarter))?"
+    r"(?:\s*[,:\-–—]?\s*(?:year\s*(?P<y2>\d)|(?P<w2>first|second|third|fourth|fifth|freshman|sophomore|junior|senior)(?:\s+year)?))?"
+    r"(?:\s*[\(\[]?\s*\d+\s*(?:cr|credits?|hrs|hours)\.?\s*[\)\]]?)?\s*$", re.I)
+SEMNUM_RE = re.compile(r"^(?:semester|term)\s*(\d{1,2})\b", re.I)
+YEARHEAD_RE = re.compile(r"^(?:year\s*(\d)|(first|second|third|fourth|fifth|freshman|sophomore|junior|senior)(?:\s+year)?)\s*:?$", re.I)
+COLHEAD = [("code", r"^(?:course(?:\s*(?:no\.?|number|#|code))?|code|subject)$"), ("title", r"^(?:course\s+)?(?:title|name|description)$"),
+           ("credits", r"^(?:cr\.?|credits?|credit\s+hours|hrs\.?|hours|units|s\.?h\.?|sch)$"),
+           ("prereq", r"^pre-?req(?:uisite)?s?\.?(?:\s*/\s*co-?req(?:uisite)?s?)?$"), ("coreq", r"^co-?req(?:uisite)?s?\.?$")]
+CREDCELL_RE = re.compile(r"^(\d{1,2})(?:\s*(?:-|–|to)\s*(\d{1,2}))?(?:\s*(?:cr|credits?|hrs)\.?)?$", re.I)
+
+
+def _cells(words, gap=7.0):
+    """Words of one row -> cells (runs of words separated by less than `gap` points)."""
+    out = []
+    for w in sorted(words, key=lambda w: w[0]):
+        if out and w[0] - out[-1]["x1"] < gap:
+            out[-1]["t"] += " " + w[4]; out[-1]["x1"] = w[2]
+        else:
+            out.append({"t": w[4], "x0": w[0], "x1": w[2]})
+    return out
+
+
+def _rows(words, tol=3.0):
+    rows = []
+    for w in sorted(words, key=lambda w: ((w[1] + w[3]) / 2, w[0])):
+        yc = (w[1] + w[3]) / 2
+        if rows and abs(rows[-1]["y"] - yc) < tol:
+            rows[-1]["w"].append(w)
+        else:
+            rows.append({"y": yc, "w": [w]})
+    for r in rows:
+        r["c"] = _cells(r["w"]); r["t"] = " ".join(c["t"] for c in r["c"])
+    return rows
+
+
+def _term_of(text, ctx):
+    """'Year 1 - Fall Semester', 'Fall', 'Semester 3', 'Sophomore Spring' -> (year, season) or None."""
+    t = text.strip()
+    m = SEMNUM_RE.match(t)
+    if m and len(t) < 30:
+        n = int(m.group(1)); return ((n + 1) // 2, "fall" if n % 2 else "spring")
+    m = TERMHEAD_RE.match(t)
+    if not m:
+        return None
+    season = m.group("season").lower().replace("autumn", "fall")
+    yr = m.group("y1") or m.group("y2")
+    w = m.group("w1") or m.group("w2")
+    year = int(yr) if yr else YEARWORDS[w.lower()] if w else None
+    if year is None:
+        year = ctx["year"]
+        if ctx["last"] and SEASONS.index(season) <= SEASONS.index(ctx["last"][1]) and ctx["last"][0] == year:
+            year += 1
+    return (max(1, year), season)
+
+
+SEASONS = ["fall", "winter", "spring", "summer"]
+
+
+def parse_table(page, ctx):
+    """ctx carries year / last term / slot numbering across pages. Returns None if this is not a table page."""
+    words = [w for w in page.get_text("words") if w[4].strip()]
+    rows = _rows(words)
+    # term headings: their own row cell. Several on one row = side-by-side tables (one band each)
+    heads = []
+    year_hint = []
+    for r in rows:
+        for c in r["c"]:
+            m = YEARHEAD_RE.match(c["t"].strip())
+            if m:
+                year_hint.append((r["y"], int(m.group(1)) if m.group(1) else YEARWORDS[m.group(2).lower()]))
+    for r in rows:
+        for c in r["c"]:
+            if len(c["t"]) <= 45 and not CODE_RE.search(c["t"]):
+                hy = max((h for h in year_hint if h[0] < r["y"]), default=None)
+                local = dict(ctx, year=hy[1] if hy else ctx["year"])
+                if hy and (not ctx["last"] or ctx["last"][0] != hy[1]):
+                    local["last"] = None
+                tm = _term_of(c["t"], local)
+                if tm:
+                    heads.append({"y": r["y"], "x0": c["x0"], "term": tm})
+                    ctx["last"] = tm; ctx["year"] = tm[0]
+    # bands: a word belongs to the nearest heading above it whose column contains it
+    xs = sorted({round(h["x0"]) for h in heads})
+    def band(x):
+        b = None
+        for bx in xs:
+            if x >= bx - 15:
+                b = bx
+        return b
+    # whole CELLS (not words) are assigned, so a long prerequisite running under the next table stays put
+    groups = {}
+    for r in rows:
+        for c in r["c"]:
+            bx = band(c["x0"])
+            above = [h for h in heads if h["y"] < r["y"] - 1 and (bx is None or round(h["x0"]) == bx)]
+            h = max(above, key=lambda h: h["y"]) if above else None
+            groups.setdefault(h["term"] if h else None, []).append(dict(c, y=r["y"]))
+
+    courses, edges, items, n_rows, n_cred, header_seen = {}, [], {}, 0, 0, False
+    for term, cs in groups.items():
+        cols, last = None, None
+        grows = []
+        for c in sorted(cs, key=lambda c: (c["y"], c["x0"])):
+            if grows and abs(grows[-1]["y"] - c["y"]) < 3:
+                grows[-1]["c"].append(c)
+            else:
+                grows.append({"y": c["y"], "c": [c]})
+        for r in grows:
+            roles = []
+            for c in r["c"]:
+                role = next((k for k, rx in COLHEAD if re.match(rx, c["t"].strip(), re.I)), None)
+                roles.append(role)
+            if sum(1 for x in roles if x) >= 2:
+                cols = sorted(({"role": k, "x0": c["x0"]} for k, c in zip(roles, r["c"]) if k), key=lambda c: c["x0"])
+                header_seen = True; continue
+            cells = [c for c in r["c"] if not (len(r["c"]) == 1 and _term_of(c["t"], dict(ctx)))]
+            if not cells:
+                continue
+            got = {}
+            if cols:
+                for c in cells:
+                    col = None
+                    for k in cols:
+                        if c["x0"] >= k["x0"] - 6:
+                            col = k
+                    role = col["role"] if col else "code"
+                    got[role] = (got.get(role, "") + " " + c["t"]).strip()
+            else:
+                got["code"] = cells[0]["t"]
+                for c in cells[1:]:
+                    if CREDCELL_RE.match(c["t"]) and "credits" not in got:
+                        got["credits"] = c["t"]
+                    elif CODE_RE.search(c["t"]) and "title" in got:
+                        got["prereq"] = (got.get("prereq", "") + " " + c["t"]).strip()
+                    elif "title" not in got:
+                        got["title"] = c["t"]
+            first = got.get("code", "")
+            cm = CODE_RE.match(first.strip())
+            if re.match(r"^\s*total\b", first, re.I) or YEARHEAD_RE.match(first.strip()):
+                continue
+            cr = CREDCELL_RE.match((got.get("credits") or "").strip())
+            if cm:
+                code = norm_code(*cm.groups())
+                title = clean(got.get("title") or first[cm.end():])
+                rec = courses.setdefault(code, {"code": code, "title": title, "kind": "required", "credits": None})
+                if cr:
+                    rec["credits"] = int(cr.group(1)); n_cred += 1
+                pre = got.get("prereq", "") + " " + got.get("coreq", "")
+                for part in re.split(r"(?i)\b(?=co-?req|concurrent)", pre):
+                    co = bool(re.match(r"(?i)co-?req|concurrent", part)) or ("coreq" in got and part in got.get("coreq", ""))
+                    found = [norm_code(*x.groups()) for x in CODE_RE.finditer(part)]
+                    alt = len(found) > 1 and re.search(r"\bor\b", part, re.I) and not re.search(r"\band\b", part, re.I)
+                    for f in found:
+                        if f != code:
+                            edges.append({"from": f, "to": code, "type": ("alt_" if alt else "") + ("coreq" if co else "prereq")})
+                items.setdefault(term, []).append(code); n_rows += 1; last = rec
+            elif cr and re.search(r"elective|gen\.?\s*ed|general education|requirement|option", first, re.I):
+                ctx["slot"] += 1
+                sid = f"SLOT {ctx['slot']}"
+                courses[sid] = {"code": sid, "title": clean(first), "credits": int(cr.group(1)),
+                                "credits_max": int(cr.group(2) or cr.group(1)), "kind": "slot", "note_refs": [], "tag": ""}
+                items.setdefault(term, []).append(sid); n_rows += 1; n_cred += 1; last = None
+            elif last is not None and not cm and len(r["c"]) <= 3 and not cr and "credits" not in got:
+                if got.get("title") or (not cols and first and not CODE_RE.search(first)):     # wrapped title line
+                    last["title"] = clean(last["title"] + " " + (got.get("title") or first))
+    if n_rows < 3 or not (header_seen or n_cred >= 0.6 * n_rows):
+        return None
+    terms = [{"year": t[0], "season": t[1], "target": None, "items": v} for t, v in items.items() if t]
+    loose = items.get(None, [])
+    return {"terms": terms, "loose": loose, "courses": courses, "edges": edges}
 
 
 # ───────────────────────── 2. flowchart parser ─────────────────────────
@@ -390,12 +577,14 @@ def prereq_edges(text):
 def extract_pdfs(paths, name=None):
     courses, edges, plans, notes, honors, alternates, subs = {}, [], [], [], [], [], []
     flow_seen, title_guess, log = False, None, []
+    tctx, tterms, tloose = {"year": 1, "last": None, "slot": 0}, {}, []
     for path in paths:
         doc = pymupdf.open(path)
         for pno, page in enumerate(doc):
             if title_guess is None:
                 for l in page_lines(page):
-                    if re.search(r"curriculum|flowchart|degree|program|major", l["t"], re.I) and 12 < len(l["t"]) < 110:
+                    if re.search(r"\b(?:curriculum|flowchart|degree|programs?|major|plan of study|(?:four|4)[- ]year plan|bachelor|B\.?[SA]\.?)\b", l["t"], re.I) \
+                            and 12 < len(l["t"]) < 110 and not CODE_RE.search(l["t"]):
                         title_guess = program_name(clean(l["t"])); break
             g = parse_grid(page)
             if g:
@@ -423,11 +612,33 @@ def extract_pdfs(paths, name=None):
                 log.append(f"p{pno+1}: notes, {len(n)} sections")
                 notes += n
                 continue
+            t = None if plans else parse_table(page, tctx)
+            if t:
+                log.append(f"p{pno+1}: course table, {len(t['courses'])} rows in {len(t['terms']) or 'no'} terms")
+                for k, v in t["courses"].items():
+                    c = courses.setdefault(k, {})
+                    c.update({a: b for a, b in v.items() if b not in (None, "")})
+                edges += t["edges"]
+                for tm in t["terms"]:
+                    tterms.setdefault((tm["year"], tm["season"]), []).extend(i for i in tm["items"] if i not in tterms.get((tm["year"], tm["season"]), []))
+                tloose += t["loose"]
+                continue
             pe = parse_prereq_text(page)
             if pe:
                 log.append(f"p{pno+1}: prerequisite text, {len(pe)} links")
                 edges += pe
                 catalog_courses((l["t"] for l in page_lines(page)), courses)
+    if not plans and tterms:
+        # every season of every year up to the last one, so the plan has no holes
+        last = max(y for y, _ in tterms)
+        plans.append([{"year": y, "season": s, "target": None, "items": tterms.get((y, s), [])}
+                      for y in range(1, last + 1) for s in SEASONS if (y, s) in tterms or s in ("fall", "spring")])
+        if tloose:
+            log.append(f"{len(tloose)} table rows had no term heading; placed by prerequisite order")
+            extra = auto_plan({k: courses[k] for k in tloose if k in courses}, edges)
+            for i, t in enumerate(extra):
+                if t["items"]:
+                    plans[0].append({"year": last + 1 + i // 2, "season": t["season"], "target": None, "items": t["items"]})
     return assemble(courses, edges, plans[0] if plans else None, notes, honors, alternates,
                     name or title_guess or "My Program", log, subs)
 

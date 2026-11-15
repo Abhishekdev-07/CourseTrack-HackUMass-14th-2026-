@@ -33,6 +33,17 @@ def secret_key():
 
 
 app = Flask(__name__)
+
+
+@app.context_processor
+def asset_urls():
+    """/static/app.js?v=<mtime>: browsers fetch a new copy as soon as the file changes, never a stale one."""
+    def asset(name):
+        try:
+            return f"/static/{name}?v={int(os.path.getmtime(os.path.join(BASE, 'static', name)))}"
+        except OSError:
+            return f"/static/{name}"
+    return {"asset": asset}
 app.config.update(SECRET_KEY=secret_key(), MAX_CONTENT_LENGTH=40 * 1024 * 1024,
                   SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
                   PERMANENT_SESSION_LIFETIME=timedelta(days=30))
@@ -209,7 +220,9 @@ def ai_job(pid, paths, digest):
 
 @app.get("/")
 def index():
-    return render_template("index.html")
+    r = app.make_response(render_template("index.html"))
+    r.headers["Cache-Control"] = "no-cache"
+    return r
 
 
 @app.get("/api/programs")
@@ -217,8 +230,16 @@ def index():
 def programs():
     out = []
     for f in sorted(glob.glob(os.path.join(PROG_DIR, "*.json")), key=os.path.getmtime, reverse=True):
-        p = json.load(open(f))
-        out.append({"id": p["id"], "name": p["name"]})
+        try:
+            p = json.load(open(f))
+        except (OSError, ValueError):
+            continue                                   # a half-written or broken file must not hide the others
+        last = next((l for l in reversed(p.get("log", [])) if isinstance(l, dict)), None)
+        out.append({"id": p["id"], "name": p["name"],
+                    "courses": sum(1 for c in p["courses"].values() if c.get("kind") != "slot"),
+                    "links": len(p.get("edges", [])),
+                    "updated": last["at"] if last else datetime.fromtimestamp(os.path.getmtime(f), timezone.utc).isoformat(timespec="seconds"),
+                    "updated_by": last["edited_by"] if last else None})
     return jsonify(out)
 
 
@@ -230,7 +251,11 @@ def program(pid):
     if request.method == "DELETE":
         if g.user["guest"]:
             return jsonify(error="Create an account to delete programs."), 403
-        os.remove(ppath(pid)); return jsonify(ok=True)
+        load(pid)                                        # 404 if it is already gone
+        os.remove(ppath(pid))
+        db().execute("DELETE FROM state WHERE program_id=?", (pid,)); db().commit()   # no orphaned plans
+        AI.pop(pid, None)
+        return jsonify(ok=True)
     # Programs are shared. The log is append-only on the server: whatever log the client sends is ignored,
     # and every save records who made it and when.
     p = request.get_json(); p["id"] = pid
@@ -239,6 +264,19 @@ def program(pid):
              "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     p["log"] = old.get("log", []) + [entry]
     save(p); return jsonify(ok=True, log_entry=entry)
+
+
+@app.post("/api/program/<pid>/rename")
+@login_required
+def rename_program(pid):
+    name = ((request.get_json(silent=True) or {}).get("name") or "").strip()[:120]
+    if not name:
+        return jsonify(error="Give the program a name."), 400
+    p = load(pid); old = p["name"]; p["name"] = name
+    p.setdefault("log", []).append({"msg": f'renamed "{old}" to "{name}"', "edited_by": g.user["username"],
+                                    "at": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+    save(p)
+    return jsonify(ok=True, name=name, log_entry=p["log"][-1])
 
 
 @app.post("/api/upload")

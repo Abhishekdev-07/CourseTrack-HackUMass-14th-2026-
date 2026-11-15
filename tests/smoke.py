@@ -57,7 +57,12 @@ def signup(page, name, pw="password123"):
 
 
 def logout(page):
+    if page.is_visible("#auth"):                                   # already signed out
+        return
     page.click("#btnUser")
+    page.click('#userMenu [data-m="logout"]')
+    if page.is_visible("#dlg"):                                    # guests are asked to confirm
+        page.click("#dlgYes")
     page.wait_for_selector("#auth:not([hidden])")
 
 
@@ -208,12 +213,12 @@ def test_shared_edit_confirms_and_logs(page):
     page.wait_for_selector("#side h2:text('ECE 202')")
     page.click('#side summary:has-text("Edit")')
     page.fill("#edTitle", "Computational Tools (edited)")
-    DIALOG["accept"], DIALOG["seen"][:] = False, []
     page.click('#side [data-act="savecourse"]')                    # cancel: nothing changes
-    assert "for everyone" in DIALOG["seen"][0]
+    assert "for everyone" in page.text_content("#dlg")
+    page.click("#dlgNo")
     assert page.evaluate("S.P.courses['ECE 202'].title") != "Computational Tools (edited)"
-    DIALOG["accept"] = True
     page.click('#side [data-act="savecourse"]')
+    page.click("#dlgYes")
     page.wait_for_function("S.P.courses['ECE 202'].title === 'Computational Tools (edited)'")
     page.click("#stProblems")
     page.click('#side summary:has-text("Program")')
@@ -314,3 +319,61 @@ def test_clear_a_term(page):
     assert page.locator(clear).count() == 0
     page.click("#toast #tUndo")
     assert page.evaluate("!!S.done['MATH 131'] && !!S.done['ENGIN 112']")
+
+
+def test_sign_out_menu(page):
+    fresh(page)
+    page.click("#btnUser")
+    assert "Signed in as" in page.inner_text("#userMenu")
+    page.keyboard.press("Escape"); assert page.is_hidden("#userMenu")
+    name = page.inner_text("#btnUser")
+    logout(page)
+    assert page.inner_text("#liOk") == "You are signed out." and page.input_value("#liUser") == name
+
+
+def test_upload_sheet_clear(page):
+    fresh(page)
+    page.click("#btnUpload")
+    assert not page.is_enabled("#upClear")
+    page.set_input_files("#file", os.path.join(SAMPLES, "EE_worksheet.pdf"))
+    page.fill("#progName", "x")
+    page.click('.sheet summary:has-text("Paste catalog text")'); page.fill("#catalog", "ECE 122 - Intro (4 credits)")
+    assert "EE_worksheet.pdf" in page.inner_text("#dropTxt") and page.is_enabled("#upClear")
+    page.click("#upClear")
+    assert "Drop PDFs here" in page.inner_text("#dropTxt")
+    assert page.input_value("#progName") == page.input_value("#catalog") == "" and not page.is_enabled("#upClear")
+    page.set_input_files("#file", os.path.join(SAMPLES, "EE_worksheet.pdf"))   # the same file can be chosen again
+    assert "EE_worksheet.pdf" in page.inner_text("#dropTxt")
+    page.click("#upClear"); page.click("#modal .x")
+
+
+def test_start_over_and_manage_programs(page):
+    fresh(page)
+    page.evaluate("moveTo('ECE 202', '2-spring')"); page.locator('.node[data-id="MATH 131"] .cb').click()
+    page.click("#stProblems"); page.click('#side summary:has-text("Your data")')
+    page.click('#side [data-act="startover"]'); page.click("#dlgYes")
+    assert page.evaluate("S.plans.length") == 1 and page.evaluate("Object.keys(S.done).length") == 0
+    page.click("#toast #tUndo")
+    assert page.evaluate("S.plans.length") == 2 and page.evaluate("!!S.done['MATH 131']")
+
+    page.evaluate("""() => api('/api/typed', {method: 'POST', json: {text: 'MATH 131 | Calc | 4\\nMATH 132 | Calc II | 4', name: 'Throwaway'}})""")
+    page.select_option("#progSel", "__manage")
+    page.wait_for_selector('#progList .prow:has-text("Throwaway")')
+    assert page.input_value("#progSel") == PIDS["compe"]              # the menu entry is not a program
+    page.click('#progList .prow:has-text("Throwaway") [data-p="delete"]')
+    assert "every user's plans" in page.text_content("#dlg"); page.click("#dlgYes")
+    page.wait_for_function("() => ![...document.querySelectorAll('#progList .prow')].some(r => r.textContent.includes('Throwaway'))")
+    page.keyboard.press("Escape"); assert page.is_hidden("#progModal")
+    assert "Throwaway" not in page.inner_text("#progSel")
+
+
+def test_selected_card_is_brought_into_view(page):
+    fresh(page)
+    page.evaluate("view.x = -2000; applyView()")                   # map scrolled far away
+    page.evaluate("select('ECE 416')")                              # e.g. clicked from the side panel
+    page.wait_for_timeout(600)                                     # let the pan animation finish
+    box, stage = page.locator('.node[data-id="ECE 416"] .card').bounding_box(), page.locator("#stage").bounding_box()
+    assert stage["x"] <= box["x"] and box["x"] + box["width"] <= stage["x"] + stage["width"]
+    page.evaluate("select('ECE 341', true)")                        # an elective not on the map: its chain lights up
+    assert page.locator("#world.dim").count() == 1
+    assert "hl" in page.get_attribute('.node[data-id="ECE 241"]', "class")

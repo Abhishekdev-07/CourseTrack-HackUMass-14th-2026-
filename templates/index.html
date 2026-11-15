@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CourseTrack</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 12 12%22%3E%3Crect width=%2212%22 height=%2212%22 fill=%22%230a0a0a%22/%3E%3Crect x=%221%22 y=%226.6%22 width=%222.6%22 height=%223.6%22 fill=%22%23f85149%22/%3E%3Crect x=%224.7%22 y=%224.2%22 width=%222.6%22 height=%226%22 fill=%22%233fb950%22/%3E%3Crect x=%228.4%22 y=%221.8%22 width=%222.6%22 height=%228.4%22 fill=%22%2358a6ff%22/%3E%3C/svg%3E">
-<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="{{ asset('style.css') }}">
 </head>
 <body>
 
@@ -60,7 +60,7 @@
   </div>
   <button id="btnExtra" class="toggle" title="Show Winter and Summer terms">Winter / Summer</button>
   <button id="btnUpload">Upload PDF</button>
-  <button id="btnUser" class="link" title="Log out"></button>
+  <button id="btnUser" class="link" title="Account" aria-haspopup="menu" aria-expanded="false"></button>
 </header>
 <div id="xp"><i id="xpBar"></i></div>
 
@@ -100,7 +100,7 @@
       <div id="dropTxt"><b>Drop PDFs here</b> or click to choose</div>
     </div>
     <input id="progName" placeholder="Program name (optional)">
-    <button id="goUpload" class="primary">Build my tree</button>
+    <div class="upBtns"><button id="goUpload" class="primary">Build my tree</button><button id="upClear" type="button" title="Remove the chosen files and any text you entered">Clear</button></div>
     <details>
       <summary>No PDF? Paste catalog text</summary>
       <textarea id="catalog" rows="6" placeholder="Paste course descriptions from the online catalog, e.g.&#10;ECE 241 - Advanced Programming (3 credits)&#10;Prerequisite: ECE 122 and MATH 132."></textarea>
@@ -114,7 +114,23 @@
     <div id="upMsg"></div>
   </div>
 </div>
+<div id="progModal" class="overlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pmTitle">
+    <button class="x" data-close title="Close (Esc)">×</button>
+    <h2 id="pmTitle">Programs</h2>
+    <p class="muted">Programs are shared by everyone who uses this site. Your own plans for each are private.</p>
+    <div id="progList"></div>
+    <button id="pmUpload" style="margin-top:12px">+ Add a program</button>
+  </div>
+</div>
+<div id="dlg" class="overlay top" hidden>
+  <div class="sheet dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlgTitle" aria-describedby="dlgMsg">
+    <h2 id="dlgTitle"></h2><p id="dlgMsg"></p><input id="dlgIn" hidden>
+    <div class="dlgBtns"><button id="dlgNo" type="button">Cancel</button><button id="dlgYes" type="button" class="primary">OK</button></div>
+  </div>
+</div>
+<div id="userMenu" class="menu" role="menu" hidden></div>
 <div id="toast"></div>
-<script src="/static/app.js"></script>
+<script src="{{ asset('app.js') }}"></script>
 </body>
 </html>

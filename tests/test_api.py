@@ -86,3 +86,25 @@ def test_catalog_endpoint(client):
     r = client.post("/api/catalog", json={"text": "ECE 122 - Intro (4 credits)\nECE 241 - Adv (3 credits)\nPrerequisite: ECE 122.", "name": "C"})
     assert r.status_code == 200 and any(e["from"] == "ECE 122" and e["to"] == "ECE 241" for e in r.get_json()["program"]["edges"])
     assert client.post("/api/catalog", json={"text": "nothing here"}).status_code == 400
+
+
+def test_program_list_stats_rename_and_delete_cleans_state(client):
+    name = uname(); signup(client, name)
+    pid = client.post("/api/typed", json={"text": "MATH 131 | Calc I | 4\nMATH 132 | Calc II | 4 | prereq: MATH 131", "name": "Del"}).get_json()["program"]["id"]
+    row = next(p for p in client.get("/api/programs").get_json() if p["id"] == pid)
+    assert row["courses"] == 2 and row["links"] == 1 and row["updated"]
+    r = client.post(f"/api/program/{pid}/rename", json={"name": "Renamed"}).get_json()
+    assert r["name"] == "Renamed" and r["log_entry"]["edited_by"] == name
+    assert client.get(f"/api/program/{pid}").get_json()["name"] == "Renamed"
+    assert client.post(f"/api/program/{pid}/rename", json={"name": "  "}).status_code == 400
+    client.put(f"/api/state/{pid}", data='{"plans": []}', content_type="application/json")
+    assert client.delete(f"/api/program/{pid}").status_code == 200
+    assert client.get(f"/api/program/{pid}").status_code == 404
+    assert client.delete(f"/api/program/{pid}").status_code == 404
+    with appmod.app.app_context():
+        assert appmod.db().execute("SELECT COUNT(*) FROM state WHERE program_id=?", (pid,)).fetchone()[0] == 0
+
+
+def test_static_assets_are_versioned(client):
+    html = client.get("/").get_data(as_text=True)
+    assert "/static/app.js?v=" in html and "/static/style.css?v=" in html

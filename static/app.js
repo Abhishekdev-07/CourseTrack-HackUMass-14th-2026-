@@ -84,7 +84,28 @@ async function saveProgram(edit) {          // the server appends {msg, edited_b
   if (d.log_entry) (S.P.log = S.P.log || []).push(d.log_entry);
   return r;
 }
-const sharedOK = what => confirm(`Programs are shared. This changes ${what} for everyone using "${S.P.name}", not just you.\n\nContinue?`);
+/* In-app dialog instead of the browser's confirm()/prompt(): same look as the rest of the app.
+   ask(msg) -> Promise<boolean>;  ask(msg, {input: 'default'}) -> Promise<string|null> */
+function ask(msg, { yes = 'OK', no = 'Cancel', danger = false, input = null, title = '' } = {}) {
+  return new Promise(res => {
+    const d = $('#dlg'), inp = $('#dlgIn'), prev = document.activeElement;
+    $('#dlgTitle').textContent = title; $('#dlgTitle').hidden = !title;
+    $('#dlgMsg').textContent = msg; $('#dlgMsg').hidden = !msg;
+    $('#dlgYes').textContent = yes; $('#dlgNo').textContent = no;
+    $('#dlgYes').className = danger ? 'danger solid' : 'primary';
+    inp.hidden = input === null; inp.value = input ?? '';
+    d.hidden = false; (input === null ? $('#dlgYes') : inp).focus(); if (input !== null) inp.select();
+    const done = ok => {
+      d.hidden = true; d.onkeydown = d.onclick = $('#dlgYes').onclick = $('#dlgNo').onclick = null;
+      if (prev && prev.focus) prev.focus();
+      res(input === null ? ok : ok ? inp.value.trim() || null : null);
+    };
+    $('#dlgYes').onclick = () => done(true); $('#dlgNo').onclick = () => done(false);
+    d.onclick = e => { if (e.target === d) done(false); };
+    d.onkeydown = e => { e.stopPropagation(); if (e.key === 'Escape') done(false); if (e.key === 'Enter' && e.target === inp) done(true); };
+  });
+}
+const sharedOK = what => ask(`This changes ${what} for everyone using "${S.P.name}", not just you.`, { title: 'Programs are shared', yes: 'Change for everyone' });
 const logLine = l => { if (typeof l === 'string') return l;
   const d = new Date(l.at), z = n => String(n).padStart(2, '0');
   const t = isNaN(d) ? '' : `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
@@ -151,7 +172,7 @@ $('#signupForm').addEventListener('submit', e => {
     if (!r.ok) { const id = r.d.field === 'password' ? 'suPass' : 'suUser'; fieldErr(id, r.d.error); return $('#' + id).focus(); }
     e.target.reset();
     $('#liUser').value = r.d.username || u; $('#liPass').value = '';
-    $('#liOk').textContent = 'Account created. Log in to continue.'; $('#liOk').hidden = false;
+    $('#liOk').textContent = 'Account created. Log in to continue.'; $('#liOk').classList.remove('info'); $('#liOk').hidden = false;
     authTab('login', true);
   });
 });
@@ -160,13 +181,39 @@ $('#auGuest').addEventListener('click', async () => {
   if (!r.ok) return $('#auMsg').textContent = r.d.error;
   enter(r.d);
 });
-$('#btnUser').addEventListener('click', async () => {
-  if (!confirm(S.user.guest ? 'Leave guest mode? Guest progress cannot be recovered.' : 'Log out?')) return;
-  await flush(); await fetch('/api/logout', { method: 'POST' }); S.P = null; showAuth();
+function userMenu(open = $('#userMenu').hidden) {
+  const m = $('#userMenu');
+  $('#btnUser').setAttribute('aria-expanded', open);
+  if (!open) return m.hidden = true;
+  m.innerHTML = S.user.guest
+    ? `<div class="mhead">Guest session</div><div class="mnote">Plans made as a guest are lost when you leave. Create an account to keep your work.</div>
+       <button data-m="signup">Create an account</button><button data-m="logout">Leave guest mode</button>`
+    : `<div class="mhead">Signed in as <b>${esc(S.user.username)}</b></div><div class="mnote">Your plans, checkmarks and notes are saved to this account.</div>
+       <button data-m="logout">Log out</button>`;
+  m.hidden = false; m.querySelector('button').focus();
+}
+async function logOut(tab = 'login') {
+  await flush();
+  await fetch('/api/logout', { method: 'POST' }).catch(() => {});
+  const was = S.user; S.P = null; S.user = null; H.past = []; H.future = [];
+  showAuth(tab);
+  if (tab === 'login' && was && !was.guest) {
+    $('#liUser').value = was.username; $('#liPass').focus();
+    $('#liOk').textContent = 'You are signed out.'; $('#liOk').classList.add('info'); $('#liOk').hidden = false;
+  }
+}
+$('#btnUser').addEventListener('click', e => { e.stopPropagation(); userMenu(); });
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#userMenu, #btnUser')) userMenu(false); });
+$('#userMenu').addEventListener('click', async e => {
+  const b = e.target.closest('[data-m]'); if (!b) return;
+  userMenu(false);
+  if (S.user.guest && !(await ask('Your guest plans cannot be recovered after this.', { title: 'Leave guest mode?', yes: 'Leave', danger: true }))) return;
+  logOut(b.dataset.m === 'signup' ? 'signup' : 'login');
 });
+$('#userMenu').addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); userMenu(false); $('#btnUser').focus(); } });
 function enter(user) {
   S.user = user; $('#auth').hidden = true; $('#app').hidden = false;
-  $('#btnUser').textContent = (user.guest ? 'guest' : user.username) + ' ⏻';
+  $('#btnUser').textContent = user.guest ? 'guest' : user.username;
   loadPrograms(user.last_program);
 }
 async function boot() {
@@ -257,7 +304,8 @@ async function loadPrograms(selectId) {
   if (saveT) await flush();                   // save the program we are leaving first
   const list = await (await api('/api/programs')).json();
   if (seq !== loadSeq) return;
-  $('#progSel').innerHTML = list.map(p => `<option value="${p.id}" title="${esc(p.name)}">${esc(p.name)}</option>`).join('') || '<option>no programs</option>';
+  $('#progSel').innerHTML = (list.map(p => `<option value="${p.id}" title="${esc(p.name)}">${esc(p.name)}</option>`).join('') || '<option value="">no programs</option>')
+    + '<option disabled>──────────</option><option value="__manage">Manage programs…</option>';
   if (!list.length) { S.P = null; $('#empty').hidden = false; ['#cols', '#edges', '#nodes'].forEach(s => $(s).innerHTML = ''); $('#side').hidden = true; return; }
   const id = (list.find(p => p.id === selectId) || list[0]).id;
   $('#progSel').value = id; $('#progSel').title = list.find(p => p.id === id).name;
@@ -462,7 +510,7 @@ function render() {
   }).join('');
 
   let hl = new Set(), selCode = null;
-  if (S.sel && (p.pos[S.sel] || V.at[S.sel])) {
+  if (S.sel && (p.pos[S.sel] || V.at[S.sel] || S.P.courses[S.sel] || S.custom[S.sel])) {
     selCode = p.pos[S.sel] ? eff(S.sel) : S.sel;
     hl = new Set([...chain(selCode, 'up'), ...chain(selCode, 'down'), selCode]);
   }
@@ -662,7 +710,7 @@ function fillSlot(slot, code, meets) {
   const q = editable(); q.fills[slot] = code; q.meets = q.meets || {};
   if (meets && meets.length) q.meets[slot] = meets; else delete q.meets[slot];
   if (S.notes[slot]) { S.notes[code] = S.notes[code] ? S.notes[code] + '\n' + S.notes[slot] : S.notes[slot]; delete S.notes[slot]; }
-  S.sel = slot; S.find = ''; refresh();
+  S.sel = slot; S.find = ''; refresh(); ensureVisible(slot);
 }
 const chk = (key, label) => `<label class="chk"><input type="checkbox" data-chk="${esc(key)}" ${S.checks[key] ? 'checked' : ''}><span>${esc(label)}</span></label>`;
 function dPlan() {
@@ -678,7 +726,6 @@ function dPlan() {
     </div><div class="btns">
       ${errs.some(e => e.fix) ? '<button class="primary" data-act="autofix">Fix by pushing courses later</button>' : ''}
       ${p.locked ? '' : `<button data-act="rename">Rename</button><button data-act="reset" ${isChanged(p) ? '' : 'disabled'}>Reset to official</button><button class="danger" data-act="delplan">Delete plan</button>`}
-      ${Object.keys(S.done).length ? '<button data-act="cleardone">Clear checkmarks</button>' : ''}
     </div>`;
   h += sec(`Problems · ${errs.length}`, errs.map(i => `<div class="issue" data-act="go" data-id="${esc(i.id || '')}">${esc(i.msg)}</div>`).join('') || '<div class="muted">None. Every prerequisite is in order.</div>', true);
   h += sec(`Changes from official · ${moved.length + added.length}`, moved.map(id => `<div class="row" data-act="go" data-id="${esc(id)}"><span class="c">${esc(C(id).kind === 'slot' ? C(id).title : id)}</span><span class="t"></span><span class="s">${tlabel(off.pos[id])} → ${tlabel(p.pos[id])}</span></div>`).join('') +
@@ -703,10 +750,14 @@ function dPlan() {
   if ((S.P.rules || []).length) h += sec('Rules found by AI', S.P.rules.map((r, i) => chk('rule:' + i, r)).join(''));
   h += sec(`Swaps · ${activeSubs(p).length}/${SUBS().length}`, SUBS().map(swapRow).join('') || '<div class="muted">None in this program. Open a course to define one.</div>');
   h += sec('Heads-up · ' + infos.length, infos.map(i => `<div class="issue info" data-act="go" data-id="${esc(i.id || '')}">${esc(i.msg)}</div>`).join(''));
+  h += sec('Your data', `<div class="muted" style="font-size:12px">Only affects you. Undo with Ctrl+Z right after.</div>
+    <div class="btns" style="margin-top:8px"><button data-act="cleardone" ${Object.keys(S.done).length ? '' : 'disabled'}>Clear all checkmarks</button>
+    <button class="danger" data-act="startover">Start over…</button></div>`);
   h += sec('Program', `<pre class="log">${esc((S.P.log || []).map(logLine).join('\n'))}</pre>
     ${S.ai && S.ai.msg ? `<div class="note">${esc(S.ai.msg)}</div>` : ''}
     <div class="inl" style="margin-top:8px"><input id="ncCode" placeholder="Add course, e.g. MATH 233"><input id="ncCr" placeholder="cr" style="flex:0 0 44px"><button data-act="newcourse">Add</button></div>
-    <div class="btns" style="margin-top:8px"><button data-act="renameprog">Rename program</button><button class="danger" data-act="delprog">Delete program</button></div>`);
+    <div class="btns" style="margin-top:8px"><button data-act="renameprog">Rename program</button><button data-act="manage">All programs…</button>
+    <button class="danger" data-act="delprog" ${S.user.guest ? 'disabled title="Create an account to delete programs"' : ''}>Delete program</button></div>`);
   return h;
 }
 
@@ -714,8 +765,28 @@ function dPlan() {
 function select(id, pan) {
   S.sel = id || null; S.find = '';
   S.drawer = id ? 'course' : (S.drawer === 'plan' ? 'plan' : null);
-  render(); drawer();
-  if (pan && id) focusOn(plan().pos[id] ? id : (V.at[id] || {}).id);
+  render(); drawer();                         // the drawer may have just opened: the stage is narrower now
+  if (!id) return;
+  const nid = plan().pos[id] ? id : (V.at[id] || {}).id || nearestRelated(id);
+  if (!nid) return;
+  if (pan) focusOn(nid); else ensureVisible(nid);
+}
+// a course that is not on the map: show where it would connect (its latest prerequisite, else first dependent)
+function nearestRelated(code) {
+  const up = [...chain(code, 'up')].map(c => V.at[c]).filter(Boolean).sort((a, b) => b.idx - a.idx);
+  const down = [...chain(code, 'down')].map(c => V.at[c]).filter(Boolean).sort((a, b) => a.idx - b.idx);
+  return (up[0] || down[0] || {}).id;
+}
+function ensureVisible(id, pad = 28) {        // pan the least amount needed so the card is fully on screen
+  const pt = L && L.at[id]; if (!pt) return;
+  const r = $('#stage').getBoundingClientRect();
+  const x0 = view.x + pt.x * view.k, x1 = x0 + NW * view.k, y0 = view.y + pt.y * view.k, y1 = y0 + NH * view.k;
+  let dx = 0, dy = 0;
+  if (x1 > r.width - pad) dx = r.width - pad - x1;
+  if (x0 + dx < pad) dx = pad - x0;
+  if (y1 > r.height - pad) dy = r.height - pad - y1;
+  if (y0 + dy < 8) dy = 8 - y0;
+  if (dx || dy) { view.x += dx; view.y += dy; animate(); applyView(); }
 }
 function go(code) {                  // jump to a course wherever it is: pan + highlight, or offer to add it
   const nid = plan().pos[code] ? code : (V.at[code] || {}).id;
@@ -760,7 +831,7 @@ $('#side').addEventListener('click', async e => {
   else if (a === 'cleardone') clearDone();
   else if (a === 'limdefault') { S.limits = JSON.parse(JSON.stringify(LIMITS)); refresh(); }
   else if (a === 'rename') {
-    const n = (prompt('Plan name', p.name) || '').trim().slice(0, 40);
+    const n = ((await ask('', { title: 'Rename plan', input: p.name, yes: 'Rename' })) || '').slice(0, 40);
     if (!n || n === p.name) return;
     if (S.plans.some(x => x !== p && x.name === n)) return toast(`There is already a plan called "${n}".`);
     p.name = n; refresh();
@@ -768,12 +839,12 @@ $('#side').addEventListener('click', async e => {
   else if (a === 'delplan') deletePlan();
   else if (a === 'deledge') {
     e.stopPropagation(); const x = S.P.edges[+el.dataset.i];
-    if (!sharedOK(`the prerequisites of ${x.to}`)) return;
+    if (!(await sharedOK(`the prerequisites of ${x.to}`))) return;
     S.P.edges.splice(+el.dataset.i, 1); await saveProgram(`removed prerequisite ${x.from} -> ${x.to}`); refresh(false);
   }
   else if (a === 'addedge') {
     const from = normCode($('#newPre').value); if (!from) return toast('Type a course code like MATH 132.');
-    if (!sharedOK(`the prerequisites of ${id}`)) return;
+    if (!(await sharedOK(`the prerequisites of ${id}`))) return;
     if (!S.P.courses[from]) S.P.courses[from] = { code: from, title: '', credits: 3, kind: 'external', note_text: [] };
     const type = $('#newPreType').value;
     S.P.edges.push({ from, to: id, type, source: 'user' }); await saveProgram(`added ${type} ${from} -> ${id}`); refresh(false);
@@ -782,7 +853,7 @@ $('#side').addEventListener('click', async e => {
   else if (a === 'savecourse') {
     const c = S.P.courses[id], title = $('#edTitle').value, cr = +$('#edCr').value || c.credits;
     if (title === c.title && cr === c.credits) return;
-    if (!sharedOK(`${id}'s title and credits`)) return;
+    if (!(await sharedOK(`${id}'s title and credits`))) return;
     const was = `"${c.title}", ${c.credits} cr`; c.title = title; c.credits = cr;
     await saveProgram(`${id}: ${was} -> "${title}", ${cr} cr`); refresh(false); toast('Saved.');
   }
@@ -791,8 +862,10 @@ $('#side').addEventListener('click', async e => {
     S.P.courses[code] = S.P.courses[code] || { code, title: '', credits: +$('#ncCr').value || 3, kind: 'elective', note_text: [] };
     await saveProgram(`added course ${code}`); select(code);
   }
-  else if (a === 'renameprog') { const n = prompt('Program name', S.P.name); if (n) { S.P.name = n; await saveProgram(`renamed to "${n}"`); loadPrograms(S.P.id); } }
-  else if (a === 'delprog') { if (confirm('Delete this program for everyone?')) { const r = await api('/api/program/' + S.P.id, { method: 'DELETE' }); if (r.ok) loadPrograms(); else toast((await r.json()).error); } }
+  else if (a === 'renameprog') renameProgram(S.P.id, S.P.name);
+  else if (a === 'delprog') deleteProgram(S.P.id, S.P.name);
+  else if (a === 'manage') openPrograms();
+  else if (a === 'startover') startOver();
 });
 $('#side').addEventListener('submit', e => {
   e.preventDefault();
@@ -840,7 +913,10 @@ $('#btnRedo').addEventListener('click', () => undo(1));
 $('#toast').addEventListener('click', e => { if (e.target.id === 'tUndo') { $('#toast').classList.remove('on'); undo(-1); } });
 $('#btnFork').addEventListener('click', () => { fork(); refresh(); toast(`"${plan().name}" created. Drag courses to try a different path.`); });
 $('#btnExtra').addEventListener('click', () => { S.extra = !S.extra; refresh(); });
-$('#progSel').addEventListener('change', e => loadPrograms(e.target.value));
+$('#progSel').addEventListener('change', e => {
+  if (e.target.value === '__manage') { e.target.value = S.P ? S.P.id : ''; return openPrograms(); }
+  if (e.target.value) loadPrograms(e.target.value);
+});
 $('#btnUpload').addEventListener('click', () => openUpload());
 $('#stProblems').addEventListener('click', () => { S.drawer = 'plan'; drawer(); });
 $('#stDone').addEventListener('click', () => { S.drawer = 'plan'; drawer(); });
@@ -921,6 +997,7 @@ svg.addEventListener('pointerup', () => {
 });
 window.addEventListener('keydown', e => {
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  if (e.key === 'Escape' && !$('#progModal').hidden) return closePrograms();
   if (e.key === 'Escape' && !typing) { if (!$('#modal').hidden) closeUpload(); else { S.drawer = null; S.sel = null; render(); drawer(); } }
   if ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key === 'k')) { e.preventDefault(); $('#q').focus(); $('#q').select(); }
   if ((e.ctrlKey || e.metaKey) && !typing && (e.key === 'z' || e.key === 'Z' || e.key === 'y')) {
@@ -932,10 +1009,24 @@ window.addEventListener('beforeunload', () => { if (saveT) flush(); });
 
 /* ───────────── upload ───────────── */
 let picked = [];
-function openUpload() { $('#modal').hidden = false; $('#upMsg').textContent = ''; }
+function openUpload() { $('#modal').hidden = false; $('#upMsg').textContent = ''; upDirty(); }
 function closeUpload() { $('#modal').hidden = true; }
+function clearUpload() {                      // empty the whole sheet: files, name, pasted/typed text, messages
+  picked = []; setPicked([]); file.value = '';
+  ['#progName', '#catalog', '#typed'].forEach(s => $(s).value = '');
+  $('#upMsg').textContent = ''; document.querySelectorAll('.sheet details').forEach(d => d.open = false);
+  upDirty();
+}
+const upDirty = () => { $('#upClear').disabled = !picked.length && !['#progName', '#catalog', '#typed'].some(s => $(s).value.trim()); };
 const drop = $('#drop'), file = $('#file');
-function setPicked(fs) { picked = [...fs].filter(f => /\.pdf$/i.test(f.name)); $('#dropTxt').innerHTML = picked.length ? picked.map(f => esc(f.name)).join('<br>') : '<b>Drop PDFs here</b> or click to choose'; }
+function setPicked(fs) {
+  const all = [...fs]; picked = all.filter(f => /\.pdf$/i.test(f.name));
+  $('#dropTxt').innerHTML = picked.length ? picked.map(f => esc(f.name)).join('<br>') : '<b>Drop PDFs here</b> or click to choose';
+  $('#upMsg').textContent = all.length > picked.length ? `Skipped ${all.length - picked.length} file${all.length - picked.length > 1 ? 's' : ''} that ${all.length - picked.length > 1 ? 'are' : 'is'} not a PDF.` : '';
+  upDirty();
+}
+$('#upClear').addEventListener('click', clearUpload);
+$('#modal').addEventListener('input', upDirty);
 drop.addEventListener('click', () => file.click());
 file.addEventListener('change', () => setPicked(file.files));
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
@@ -944,22 +1035,83 @@ drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('
 window.addEventListener('dragover', e => { if (S.user && e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); openUpload(); } });
 window.addEventListener('drop', e => e.preventDefault());
 
+/* ───────────── programs manager (from the program menu) ───────────── */
+const ago = iso => { const d = new Date(iso); if (isNaN(d)) return ''; const m = (Date.now() - d) / 6e4;
+  return m < 1 ? 'just now' : m < 60 ? `${Math.round(m)} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : d.toLocaleDateString(); };
+async function openPrograms() {
+  $('#progModal').hidden = false;
+  const list = await (await api('/api/programs')).json();
+  $('#progList').innerHTML = list.map(p => `<div class="prow ${S.P && p.id === S.P.id ? 'cur' : ''}" data-id="${p.id}" data-name="${esc(p.name)}">
+      <div class="pn"><b>${esc(p.name)}</b><span>${p.courses} courses · ${p.links} links · ${p.updated_by ? 'edited by ' + esc(p.updated_by) + ' · ' : ''}${ago(p.updated)}</span></div>
+      ${S.P && p.id === S.P.id ? '<span class="muted mono">open</span>' : '<button data-p="open">Open</button>'}
+      <button data-p="rename">Rename</button>
+      <button class="danger" data-p="delete" ${S.user.guest ? 'disabled title="Create an account to delete programs"' : ''}>Delete</button></div>`).join('')
+    || '<div class="muted">No programs yet.</div>';
+}
+const closePrograms = () => { $('#progModal').hidden = true; };
+$('#progModal').addEventListener('click', async e => {
+  if (e.target === $('#progModal') || e.target.closest('[data-close]')) return closePrograms();
+  if (e.target.id === 'pmUpload') { closePrograms(); return openUpload(); }
+  const b = e.target.closest('[data-p]'), row = e.target.closest('.prow'); if (!b || !row) return;
+  const id = row.dataset.id, name = row.dataset.name;
+  if (b.dataset.p === 'open') { closePrograms(); loadPrograms(id); }
+  if (b.dataset.p === 'rename') { if (await renameProgram(id, name)) openPrograms(); }
+  if (b.dataset.p === 'delete') { if (await deleteProgram(id, name)) openPrograms(); }
+});
+async function renameProgram(id, name) {
+  const n = await ask('Everyone using this program sees the new name.', { title: 'Rename program', input: name, yes: 'Rename' });
+  if (!n || n === name) return false;
+  const r = await api(`/api/program/${id}/rename`, { method: 'POST', json: { name: n } }), d = await r.json();
+  if (!r.ok) { toast(d.error || 'Could not rename.'); return false; }
+  if (S.P && S.P.id === id) { S.P.name = d.name; (S.P.log = S.P.log || []).push(d.log_entry); }
+  await loadPrograms(S.P ? S.P.id : id); toast(`Renamed to "${d.name}".`); return true;
+}
+async function deleteProgram(id, name) {
+  if (!(await ask(`"${name}" and every user's plans, checkmarks and notes for it will be removed. This cannot be undone.`,
+                  { title: 'Delete program for everyone?', yes: 'Delete program', danger: true }))) return false;
+  const r = await api('/api/program/' + id, { method: 'DELETE' });
+  if (!r.ok) { toast((await r.json().catch(() => ({}))).error || 'Could not delete.'); return false; }
+  if (S.P && S.P.id === id) { S.P = null; clearTimeout(saveT); saveT = null; S.drawer = null; await loadPrograms(); }
+  else await loadPrograms(S.P && S.P.id);
+  toast(`Deleted "${name}".`); return true;
+}
+// Start over: every plan, checkmark, own course and checklist tick for this program (notes stay). Undoable.
+async function startOver() {
+  const n = S.plans.length - 1, c = Object.keys(S.done).length;
+  if (!(await ask(`Deletes your ${n} plan${n === 1 ? '' : 's'}, ${c} checkmark${c === 1 ? '' : 's'}, your own courses and checklist ticks for "${S.P.name}". Your notes are kept. You can undo this right after.`,
+                  { title: 'Start over on this program?', yes: 'Start over', danger: true }))) return;
+  S.plans = [S.plans[0]]; S.cur = 0; S.done = {}; S.custom = {}; S.checks = {}; S.sel = null; S.drawer = null;
+  refresh(); toast('Back to the official plan, nothing checked.', false, true);
+}
+
+async function building(btn, fn) {           // one request at a time; the button says what is happening
+  if (btn.disabled) return;
+  const label = btn.textContent; btn.disabled = true; btn.textContent = 'Building…';
+  try { await fn(); } catch (e) { $('#upMsg').textContent = 'Could not reach the server. Try again.'; }
+  finally { btn.disabled = false; btn.textContent = label; }
+}
 async function built(res) {
-  const d = await res.json();
-  if (!res.ok) { $('#upMsg').textContent = d.error || 'Something went wrong.'; return; }
-  closeUpload(); picked = []; setPicked([]); $('#progName').value = '';
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) { $('#upMsg').textContent = d.error || `Something went wrong (${res.status}).`; return; }
+  closeUpload(); clearUpload();
   await loadPrograms(d.program.id); S.ai = d.ai;
   toast(`Built ${Object.values(d.program.courses).filter(c => c.kind !== 'slot').length} courses and ${d.program.edges.length} links.`);
   if (d.ai.status === 'running') pollAI(d.program.id);
 }
-$('#goUpload').addEventListener('click', async () => {
+$('#goUpload').addEventListener('click', e => building(e.target, async () => {
   if (!picked.length) return $('#upMsg').textContent = 'Choose at least one PDF first.';
   const fd = new FormData(); picked.forEach(f => fd.append('files', f)); fd.append('name', $('#progName').value);
   $('#upMsg').textContent = 'Reading the PDF…';
-  built(await api('/api/upload', { method: 'POST', body: fd }));
-});
-$('#goCatalog').addEventListener('click', async () => built(await api('/api/catalog', { method: 'POST', json: { text: $('#catalog').value, name: $('#progName').value } })));
-$('#goTyped').addEventListener('click', async () => built(await api('/api/typed', { method: 'POST', json: { text: $('#typed').value, name: $('#progName').value } })));
+  await built(await api('/api/upload', { method: 'POST', body: fd }));
+}));
+$('#goCatalog').addEventListener('click', e => building(e.target, async () => {
+  if (!$('#catalog').value.trim()) return $('#upMsg').textContent = 'Paste some catalog text first.';
+  await built(await api('/api/catalog', { method: 'POST', json: { text: $('#catalog').value, name: $('#progName').value } }));
+}));
+$('#goTyped').addEventListener('click', e => building(e.target, async () => {
+  if (!$('#typed').value.trim()) return $('#upMsg').textContent = 'Type at least one course first.';
+  await built(await api('/api/typed', { method: 'POST', json: { text: $('#typed').value, name: $('#progName').value } }));
+}));
 function pollAI(id) {
   const t = setInterval(async () => {
     const a = await (await api('/api/ai/' + id)).json();

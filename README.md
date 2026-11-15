@@ -9,6 +9,7 @@ Open http://127.0.0.1:5000, create an account (or continue as guest), and pick a
 
 ## Planning tips
 - Drag a course to another term to start your own plan; the official plan never changes. **Reset** puts a plan back, and every change can be undone (**Ctrl+Z** / **Ctrl+Shift+Z**, or the arrows in the header).
+- Plan menu tools: **Reset** (one plan back to official), and in the plan panel under *Your data*: clear all checkmarks or **Start over** (all your plans for that program). The program menu's **Manage programs…** renames or deletes a shared program.
 - Each term shows its credits and whether that load is `(within)` your normal limit, an `(overload)`, or `(over max)`. Only "over max" counts as a problem. Click a term's credits to set your own limits (defaults: 19 normal / 30 max for Fall and Spring).
 
 ## Tests
@@ -17,7 +18,7 @@ Open http://127.0.0.1:5000, create an account (or continue as guest), and pick a
 
 ## How it's built
 - `app.py`      Flask routes, accounts (SQLite + hashed passwords), per-user saved state
-- `extract.py`  PDF -> curriculum JSON. Reads the semester grid, the flowchart arrows and the notes straight from the PDF. No AI.
+- `extract.py`  PDF -> curriculum JSON. Reads semester grids, plan-of-study tables (stacked or side by side, with or without a header row), flowchart arrows, notes and catalog text straight from the PDF. No AI.
 - `llm.py`      Optional AI pass (off unless a key is set)
 - `static/app.js`, `static/style.css`, `templates/index.html`  the whole front end, no build step
 

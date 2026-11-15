@@ -82,3 +82,43 @@ def test_pool_never_offers_a_required_course(compe):
                          [{"n": 6, "title": "Electives", "text": "Choose one.", "options": opts, "checklist": []}], [], [], "T", [])
     assert p["pools"]["note6"]["options"] == ["ECE 341", "ECE 344"]
     assert p["courses"]["ECE 331"]["kind"] == "required"
+
+
+@pytest.fixture(scope="module")
+def tables(tmp_path_factory):
+    from make_table_pdfs import build
+    return {k: extract.extract_pdfs([v]) for k, v in build(str(tmp_path_factory.mktemp("tables"))).items()}
+
+
+def plan_of(p):
+    return {(t["year"], t["season"]): [p["courses"][i]["title"] if i.startswith("SLOT") else i for i in t["items"]] for t in p["terms"]}
+
+
+@pytest.mark.parametrize("layout", ["stacked", "sidebyside"])
+def test_table_layouts_with_terms(tables, layout):
+    p = tables[layout]
+    assert p["log"][0].startswith("p1: course table")
+    assert plan_of(p) == {
+        (1, "fall"): ["MATH 131", "ECE 122", "ENGLWRIT 112", "Gen Ed Elective"],
+        (1, "spring"): ["MATH 132", "ECE 241", "PHYSICS 151"],
+        (2, "fall"): ["ECE 201", "ECE 242", "Technical Elective"],
+        (2, "spring"): ["ECE 213"]}
+    c = p["courses"]
+    assert (c["ECE 122"]["title"], c["ECE 122"]["credits"]) == ("Introduction to Programming", 4)
+    assert c["ECE 241"]["credits"] == 3
+    slot = next(v for v in c.values() if v.get("title") == "Technical Elective")
+    assert slot["kind"] == "slot" and slot["credits"] == 3
+    e = {(x["from"], x["to"]): x["type"] for x in p["edges"]}
+    assert e[("MATH 131", "MATH 132")] == "prereq"
+    assert e[("MATH 131", "PHYSICS 151")] == "coreq"                 # 'Coreq: MATH 131'
+    assert e[("ECE 241", "ECE 242")] == e[("COMPSCI 187", "ECE 242")] == "alt_prereq"   # 'A or B'
+    assert e[("ECE 201", "ECE 213")] == e[("MATH 132", "ECE 213")] == "prereq"          # 'A and B'
+    assert p["name"] in ("BS Widget Engineering", "Widget Science")
+
+
+def test_table_without_terms_is_planned_by_prerequisites(tables):
+    p = tables["plain"]
+    term = {i: n for n, t in enumerate(p["terms"]) for i in t["items"]}
+    assert term["MATH 131"] < term["MATH 132"] < term["ECE 201"] < term["ECE 213"]
+    assert term["ECE 122"] < term["ECE 241"] < term["ECE 242"]
+    assert len(p["edges"]) == 8
